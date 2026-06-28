@@ -19,6 +19,7 @@
   - [BE-GAP-004 — 판매자 상품 목록 페이지네이션 부재](#be-gap-004--판매자-상품-목록-페이지네이션-부재)
   - [BE-GAP-005 — 재고 조회 응답이 원시 숫자](#be-gap-005--재고-조회-응답이-원시-숫자)
   - [BE-GAP-006 — 목록 응답 형태 불일치(배열 vs CursorPage)](#be-gap-006--목록-응답-형태-불일치배열-vs-cursorpage)
+  - [BE-GAP-007 — 위시리스트·최근 본 상품이 productId 만 반환](#be-gap-007--위시리스트최근-본-상품이-productid-만-반환)
 - [요약 표](#요약-표)
 - [후속 처리 방향](#후속-처리-방향)
 
@@ -151,6 +152,26 @@
 
 ---
 
+### BE-GAP-007 — 위시리스트·최근 본 상품이 productId 만 반환
+
+**심각도**: 🟡 Consistency
+
+**현재 동작 (근거)**
+- `GET /users/me/wishlist`(`user.service.ts` `listWishlist` → `findWishlistsByUser`)는 `{ id, userId, productId, createdAt }` 행을 반환. 상품 정보 미조인.
+- `GET /users/me/recent-views`(`listRecentViews`)도 `{ id, userId, productId, viewedAt }` 만 반환.
+- prisma `Wishlist`·`ProductView` 의 `productId` 는 cross-schema plain String 으로 FK 미선언(P-001 경계).
+
+**영향**
+- 위시리스트/최근 본 상품 화면에서 상품명·가격·이미지를 표시하려면 productId 별로 별도 상품 조회가 필요하다(N+1). 게다가 `GET /products/:id` 는 ACTIVE/OUT_OF_STOCK 만 반환(BE-GAP-003)하여 비활성 상품은 조회 자체가 불가하다.
+
+**console 우회**
+- `account/wishlist` 화면은 productId 를 그대로 노출. 상품 정보 enrichment 는 보류.
+
+**제안**
+- 응답에 상품 요약(`title`·`price`·대표 이미지) 포함, 또는 productId 배열을 받아 상품 요약을 일괄 반환하는 `POST /products/batch-summary` 류 엔드포인트 제공.
+
+---
+
 ## 요약 표
 
 | ID | 심각도 | 영역 | 한 줄 요약 | console 우회 가능 |
@@ -161,6 +182,7 @@
 | BE-GAP-004 | 🟡 | product | 판매자 상품 목록 페이지네이션 없음 | 가능 |
 | BE-GAP-005 | 🟡 | inventory | 재고 조회가 원시 숫자 반환 | 가능 |
 | BE-GAP-006 | 🟡 | 공통 | 목록 응답 형태(배열/envelope) 불일치 | 가능 |
+| BE-GAP-007 | 🟡 | user | 위시리스트·최근 본 상품이 productId 만 반환(상품 미조인) | 가능 |
 
 ---
 

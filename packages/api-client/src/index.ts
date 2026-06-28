@@ -1,7 +1,9 @@
 import type {
   AddImageRequest,
+  Address,
   AuthTokens,
   Category,
+  CreateAddressRequest,
   CreateProductRequest,
   CreateVariantRequest,
   CursorPage,
@@ -10,12 +12,16 @@ import type {
   Product,
   ProductImage,
   ProductVariant,
+  RecentView,
   RegisterRequest,
   SellerProfile,
   SellerRegisterRequest,
   SellerStatusResponse,
   StockInRequest,
+  UpdateAddressRequest,
+  UpdateProfileRequest,
   UserProfile,
+  WishlistItem,
 } from '@doa/shared-types';
 import { HttpClient, type HttpClientOptions } from './http';
 
@@ -44,6 +50,29 @@ export function createApiClient(options: HttpClientOptions) {
 
     user: {
       me: () => http.get<UserProfile>('/users/me'),
+      updateProfile: (body: UpdateProfileRequest) =>
+        http.patch<UserProfile>('/users/me', body),
+
+      addresses: {
+        list: () => http.get<Address[]>('/users/me/addresses'),
+        create: (body: CreateAddressRequest) =>
+          http.post<Address>('/users/me/addresses', body),
+        update: (id: string, body: UpdateAddressRequest) =>
+          http.patch<Address>(`/users/me/addresses/${id}`, body),
+        remove: (id: string) => http.delete<void>(`/users/me/addresses/${id}`),
+        setDefault: (id: string) =>
+          http.patch<{ ok: boolean }>(`/users/me/addresses/${id}/default`),
+      },
+
+      wishlist: {
+        list: () => http.get<WishlistItem[]>('/users/me/wishlist'),
+        add: (productId: string) =>
+          http.post<WishlistItem>('/users/me/wishlist', { productId }),
+        remove: (productId: string) =>
+          http.delete<void>(`/users/me/wishlist/${productId}`),
+      },
+
+      recentViews: () => http.get<RecentView[]>('/users/me/recent-views'),
     },
 
     seller: {

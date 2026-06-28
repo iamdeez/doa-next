@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* 워크스페이스 공유 UI 패키지의 Tailwind 클래스 스캔 (node_modules 는 기본 미스캔). */
+@source '../../../packages/ui/src';
+
 :root {
   --background: #f7f8fa;
   --foreground: #18181b;

@@ -2,16 +2,17 @@
 
 import type { Product } from '@doa/shared-types';
 import { ApiError } from '@doa/api-client';
+import { Badge, Button, EmptyState, ErrorText, Loading, PageHeader } from '@doa/ui';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 
-const STATUS_STYLE: Record<Product['status'], string> = {
-  ACTIVE: 'bg-green-100 text-green-700',
-  DRAFT: 'bg-zinc-100 text-zinc-600',
-  OUT_OF_STOCK: 'bg-amber-100 text-amber-700',
-  INACTIVE: 'bg-zinc-100 text-zinc-400',
+const STATUS_TONE: Record<Product['status'], 'success' | 'neutral' | 'warning'> = {
+  ACTIVE: 'success',
+  DRAFT: 'neutral',
+  OUT_OF_STOCK: 'warning',
+  INACTIVE: 'neutral',
 };
 
 /** GET /sellers/me/products — 실제 백엔드 통합 데모 화면. */
@@ -35,25 +36,22 @@ export default function SellerProductsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">내 상품</h1>
-          <p className="mt-1 text-sm text-zinc-500">승인 상태: {sellerStatus}</p>
-        </div>
-        <Link
-          href="/seller/products/new"
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
-        >
-          상품 등록
-        </Link>
-      </div>
+      <PageHeader
+        title="내 상품"
+        subtitle={`승인 상태: ${sellerStatus}`}
+        actions={
+          <Link href="/seller/products/new">
+            <Button>상품 등록</Button>
+          </Link>
+        }
+      />
 
-      {isLoading && <p className="text-sm text-zinc-500">불러오는 중…</p>}
+      {isLoading && <Loading />}
 
       {error && (
-        <p className="text-sm text-red-600">
+        <ErrorText>
           {error instanceof ApiError ? error.message : '상품을 불러오지 못했습니다.'}
-        </p>
+        </ErrorText>
       )}
 
       {data && data.length === 0 && (
@@ -81,11 +79,7 @@ export default function SellerProductsPage() {
                   </td>
                   <td className="px-4 py-3 text-zinc-600">{p.price}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLE[p.status]}`}
-                    >
-                      {p.status}
-                    </span>
+                    <Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link
@@ -101,15 +95,6 @@ export default function SellerProductsPage() {
           </table>
         </div>
       )}
-    </div>
-  );
-}
-
-function EmptyState({ title, message }: { title: string; message: string }) {
-  return (
-    <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center">
-      <div className="text-sm font-medium text-zinc-700">{title}</div>
-      <div className="mt-1 text-sm text-zinc-400">{message}</div>
     </div>
   );
 }

@@ -13,6 +13,9 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: '/dashboard', label: '대시보드', section: 'common' },
+  { href: '/account/profile', label: '프로필', section: 'common' },
+  { href: '/account/addresses', label: '배송지', section: 'common' },
+  { href: '/account/wishlist', label: '위시리스트', section: 'common' },
   { href: '/seller/products', label: '내 상품', section: 'seller' },
   { href: '/admin/sellers', label: '판매자 승인', section: 'admin' },
 ];

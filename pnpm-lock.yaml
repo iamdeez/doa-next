@@ -147,6 +147,9 @@ importers:
       '@doa/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@doa/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@tanstack/react-query':
         specifier: ^5.51.0
         version: 5.101.2(react@19.2.7)
@@ -198,7 +201,15 @@ importers:
 
   packages/shared-types: {}
 
-  packages/ui: {}
+  packages/ui:
+    dependencies:
+      react:
+        specifier: '>=19'
+        version: 19.2.7
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.17
 
 packages:
 

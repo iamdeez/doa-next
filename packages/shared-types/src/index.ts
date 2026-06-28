@@ -44,11 +44,74 @@ export interface AuthTokens {
   refreshToken?: string;
 }
 
-/** GET /auth/me, GET /users/me — 사용자 프로필. */
+/**
+ * 사용자 프로필. 엔드포인트별로 채워지는 필드가 다르다.
+ * - GET /auth/me  → { id, email, createdAt }
+ * - GET /users/me → { id, email, name, phone }
+ */
 export interface UserProfile {
   id: string;
   email: string;
+  name?: string | null;
+  phone?: string | null;
   createdAt?: string;
+}
+
+/** PATCH /users/me — UpdateProfileDto. */
+export interface UpdateProfileRequest {
+  name?: string;
+  phone?: string;
+}
+
+// ---------------------------------------------------------------------------
+// user: 배송지 / 위시리스트 / 최근 본 상품 (GET/POST/PATCH/DELETE /users/me/*)
+// ---------------------------------------------------------------------------
+
+export interface Address {
+  id: string;
+  userId: string;
+  recipientName: string;
+  phone: string;
+  zipCode: string;
+  address1: string;
+  address2?: string | null;
+  isDefault: boolean;
+  createdAt?: string;
+}
+
+/** POST /users/me/addresses — CreateAddressDto. */
+export interface CreateAddressRequest {
+  recipientName: string;
+  phone: string;
+  zipCode: string;
+  address1: string;
+  address2?: string;
+  isDefault?: boolean;
+}
+
+/** PATCH /users/me/addresses/:id — UpdateAddressDto. */
+export interface UpdateAddressRequest {
+  recipientName?: string;
+  phone?: string;
+  zipCode?: string;
+  address1?: string;
+  address2?: string | null;
+}
+
+/** GET /users/me/wishlist — 위시리스트 행(상품 정보 미조인, productId 만). */
+export interface WishlistItem {
+  id: string;
+  userId: string;
+  productId: string;
+  createdAt?: string;
+}
+
+/** GET /users/me/recent-views — 최근 본 상품 행(productId 만). */
+export interface RecentView {
+  id: string;
+  userId: string;
+  productId: string;
+  viewedAt?: string;
 }
 
 // ---------------------------------------------------------------------------

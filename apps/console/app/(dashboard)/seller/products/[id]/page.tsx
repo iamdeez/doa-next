@@ -2,6 +2,7 @@
 
 import type { CreateVariantRequest, Product, ProductVariant } from '@doa/shared-types';
 import { ApiError } from '@doa/api-client';
+import { Button, Card, ErrorText, Input, Loading } from '@doa/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -35,7 +36,7 @@ export default function ProductManagePage() {
     onSuccess: refetchAll,
   });
 
-  // GET /products/:id 는 ACTIVE/OUT_OF_STOCK 만 반환 → DRAFT/INACTIVE 는 404(백엔드 갭).
+  // GET /products/:id 는 ACTIVE/OUT_OF_STOCK 만 반환 → DRAFT/INACTIVE 는 404(BE-GAP-003).
   const notFound = detail.error instanceof ApiError && detail.error.status === 404;
 
   return (
@@ -44,7 +45,7 @@ export default function ProductManagePage() {
         ← 내 상품
       </Link>
 
-      {detail.isLoading && <p className="text-sm text-zinc-500">불러오는 중…</p>}
+      {detail.isLoading && <Loading />}
 
       {notFound && (
         <DraftPanel
@@ -86,7 +87,7 @@ function ProductHeader({
   deactivating: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between rounded-xl border border-zinc-200 bg-white p-6">
+    <Card className="flex items-start justify-between">
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900">{product.title}</h1>
         <p className="mt-1 text-sm text-zinc-500">
@@ -94,15 +95,11 @@ function ProductHeader({
         </p>
       </div>
       {product.status === 'ACTIVE' && (
-        <button
-          onClick={onDeactivate}
-          disabled={deactivating}
-          className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50"
-        >
+        <Button variant="secondary" size="sm" onClick={onDeactivate} disabled={deactivating}>
           {deactivating ? '처리 중…' : '비활성화'}
-        </button>
+        </Button>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -126,16 +123,12 @@ function DraftPanel({
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
         <h1 className="text-lg font-semibold text-amber-800">DRAFT / INACTIVE 상품</h1>
         <p className="mt-1 text-sm text-amber-700">
-          이 상태의 상품은 상세 조회 API(`GET /products/:id`)로 조회할 수 없습니다(백엔드 갭).
+          이 상태의 상품은 상세 조회 API(`GET /products/:id`)로 조회할 수 없습니다(BE-GAP-003).
           옵션을 추가한 뒤 게시하면 전체 관리 화면이 표시됩니다.
         </p>
-        <button
-          onClick={onPublish}
-          disabled={publishing}
-          className="mt-4 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50"
-        >
+        <Button onClick={onPublish} disabled={publishing} className="mt-4">
           {publishing ? '게시 중…' : '게시(publish)'}
-        </button>
+        </Button>
         {publishError instanceof ApiError && (
           <p className="mt-2 text-sm text-red-600">{publishError.message}</p>
         )}
@@ -224,13 +217,9 @@ function VariantRow({ variant, approved }: { variant: ProductVariant; approved: 
               placeholder="수량"
               className="w-20 rounded-lg border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-zinc-900"
             />
-            <button
-              type="submit"
-              disabled={stockIn.isPending}
-              className="rounded-lg bg-zinc-900 px-3 py-1 text-sm text-white transition hover:bg-zinc-800 disabled:opacity-50"
-            >
+            <Button type="submit" size="sm" disabled={stockIn.isPending}>
               입고
-            </button>
+            </Button>
           </form>
         )}
       </div>
@@ -280,55 +269,31 @@ function AddVariantForm({
     });
   }
 
-  return (
-    <form onSubmit={submit} className="space-y-3 rounded-xl border border-zinc-200 bg-white p-5">
-      <div className="text-sm font-medium text-zinc-900">옵션 추가</div>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="옵션명" value={form.optionName} onChange={(v) => setForm((s) => ({ ...s, optionName: v }))} required />
-        <Field label="옵션값" value={form.optionValue} onChange={(v) => setForm((s) => ({ ...s, optionValue: v }))} required />
-        <Field label="SKU" value={form.sku} onChange={(v) => setForm((s) => ({ ...s, sku: v }))} required />
-        <Field label="가격" type="number" value={form.price} onChange={(v) => setForm((s) => ({ ...s, price: v }))} required />
-        <Field label="초기 재고(선택)" type="number" value={form.initialStock} onChange={(v) => setForm((s) => ({ ...s, initialStock: v }))} />
-      </div>
-      {!approved && (
-        <p className="text-xs text-amber-600">※ 옵션 추가는 APPROVED 판매자만 가능합니다.</p>
-      )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={add.isPending}
-        className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50"
-      >
-        {add.isPending ? '추가 중…' : '옵션 추가'}
-      </button>
-    </form>
-  );
-}
+  const field = (key: keyof typeof form) => ({
+    value: form[key],
+    onChange: (e: { target: { value: string } }) =>
+      setForm((s) => ({ ...s, [key]: e.target.value })),
+  });
 
-function Field({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  required = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  required?: boolean;
-}) {
   return (
-    <label className="block text-xs font-medium text-zinc-600">
-      {label}
-      <input
-        type={type}
-        min={type === 'number' ? 0 : undefined}
-        required={required}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-zinc-900"
-      />
-    </label>
+    <Card className="p-5">
+      <form onSubmit={submit} className="space-y-3">
+        <div className="text-sm font-medium text-zinc-900">옵션 추가</div>
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="옵션명" required {...field('optionName')} />
+          <Input label="옵션값" required {...field('optionValue')} />
+          <Input label="SKU" required {...field('sku')} />
+          <Input label="가격" type="number" min={0} required {...field('price')} />
+          <Input label="초기 재고(선택)" type="number" min={0} {...field('initialStock')} />
+        </div>
+        {!approved && (
+          <p className="text-xs text-amber-600">※ 옵션 추가는 APPROVED 판매자만 가능합니다.</p>
+        )}
+        {error && <ErrorText>{error}</ErrorText>}
+        <Button type="submit" disabled={add.isPending}>
+          {add.isPending ? '추가 중…' : '옵션 추가'}
+        </Button>
+      </form>
+    </Card>
   );
 }

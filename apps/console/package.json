@@ -13,6 +13,7 @@
   "dependencies": {
     "@doa/api-client": "workspace:*",
     "@doa/shared-types": "workspace:*",
+    "@doa/ui": "workspace:*",
     "@tanstack/react-query": "^5.51.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
