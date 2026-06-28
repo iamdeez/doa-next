@@ -20,6 +20,7 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter backend exec prisma generate
       - run: pnpm turbo run lint --filter=backend
 
   typecheck:
@@ -34,6 +35,7 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter backend exec prisma generate
       - run: pnpm turbo run typecheck --filter=backend
 
   test:
@@ -48,6 +50,7 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter backend exec prisma generate
       - run: pnpm turbo run test --filter=backend
 
   docker-build:
