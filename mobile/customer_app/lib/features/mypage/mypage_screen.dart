@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 import '../../theme/app_theme.dart';
 import '../order/order_history_screen.dart';
+import '../wishlist/wishlist_screen.dart';
 
 class MyPageScreen extends ConsumerWidget {
   const MyPageScreen({super.key});
@@ -107,7 +108,9 @@ class _QuickCard extends StatelessWidget {
           item(Icons.local_shipping, '주문/배송',
               onTap: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const OrderHistoryScreen()))),
-          item(Icons.favorite, '찜'),
+          item(Icons.favorite, '찜',
+              onTap: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const WishlistScreen()))),
           item(Icons.confirmation_num, '쿠폰함'),
         ],
       ),

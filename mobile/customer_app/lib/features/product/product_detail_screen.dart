@@ -87,7 +87,7 @@ class _Body extends StatelessWidget {
                 children: [
                   Expanded(child: Text(product['title'] as String? ?? '',
                       style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, height: 1.35))),
-                  const Icon(Icons.favorite_border, color: DoaColors.fgMuted),
+                  _WishlistHeart(productId: product['id'] as String),
                 ],
               ),
               const SizedBox(height: 8),
@@ -127,6 +127,61 @@ class _Body extends StatelessWidget {
         _ReviewSection(productId: product['id'] as String),
         const SizedBox(height: 100),
       ],
+    );
+  }
+}
+
+/// 위시리스트 하트 토글 — POST/DELETE /users/me/wishlist.
+/// 초기 상태는 로컬 추정(미찜)으로 시작하며, 409(이미 찜)는 찜 상태로 수렴.
+class _WishlistHeart extends ConsumerStatefulWidget {
+  const _WishlistHeart({required this.productId});
+  final String productId;
+  @override
+  ConsumerState<_WishlistHeart> createState() => _WishlistHeartState();
+}
+
+class _WishlistHeartState extends ConsumerState<_WishlistHeart> {
+  bool _liked = false;
+  bool _busy = false;
+
+  Future<void> _toggle() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final dio = ref.read(dioProvider);
+    try {
+      if (_liked) {
+        await dio.delete<dynamic>('/users/me/wishlist/${widget.productId}');
+        if (mounted) setState(() => _liked = false);
+      } else {
+        try {
+          await dio.post<dynamic>('/users/me/wishlist', data: {'productId': widget.productId});
+        } on DioException catch (e) {
+          if (e.response?.statusCode != 409) rethrow; // 409=이미 찜 → liked 로 수렴
+        }
+        if (mounted) {
+          setState(() => _liked = true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('관심상품에 담았습니다.')),
+          );
+        }
+      }
+    } on DioException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('처리에 실패했습니다.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: _toggle,
+      child: Icon(_liked ? Icons.favorite : Icons.favorite_border,
+          color: _liked ? DoaColors.danger : DoaColors.fgMuted),
     );
   }
 }
