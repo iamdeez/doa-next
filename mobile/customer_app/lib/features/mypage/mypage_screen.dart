@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../theme/app_theme.dart';
+import '../address/address_book_screen.dart';
 import '../order/order_history_screen.dart';
 import '../wishlist/wishlist_screen.dart';
 
@@ -24,9 +25,20 @@ class MyPageScreen extends ConsumerWidget {
         children: [
           const _ProfileRow(),
           const _QuickCard(),
-          const _Section(title: '쇼핑 정보', items: ['최근 본 상품', '배송 주소록', '마일리지 포인트']),
+          _Section(title: '쇼핑 정보', items: [
+            ('최근 본 상품', null),
+            ('배송 주소록', () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const AddressBookScreen()))),
+            ('마일리지 포인트', null),
+          ]),
           const Divider(height: 8, thickness: 8, color: DoaColors.canvas),
-          const _Section(title: '고객 서비스', items: ['1:1 문의하기', '자주하는 질문(FAQ)', '공지사항', '알림설정', '개인정보수정']),
+          const _Section(title: '고객 서비스', items: [
+            ('1:1 문의하기', null),
+            ('자주하는 질문(FAQ)', null),
+            ('공지사항', null),
+            ('알림설정', null),
+            ('개인정보수정', null),
+          ]),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -121,7 +133,7 @@ class _QuickCard extends StatelessWidget {
 class _Section extends StatelessWidget {
   const _Section({required this.title, required this.items});
   final String title;
-  final List<String> items;
+  final List<(String, VoidCallback?)> items;
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -134,11 +146,11 @@ class _Section extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
           ),
-          for (final it in items)
+          for (final (label, onTap) in items)
             ListTile(
-              title: Text(it, style: const TextStyle(fontSize: 14)),
+              title: Text(label, style: const TextStyle(fontSize: 14)),
               trailing: const Icon(Icons.chevron_right, color: DoaColors.fgSubtle, size: 20),
-              onTap: () {},
+              onTap: onTap,
               dense: true,
             ),
         ],
