@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../theme/app_theme.dart';
+import '../order/order_history_screen.dart';
 
 class MyPageScreen extends ConsumerWidget {
   const MyPageScreen({super.key});
@@ -78,25 +79,34 @@ class _QuickCard extends StatelessWidget {
   const _QuickCard();
   @override
   Widget build(BuildContext context) {
-    Widget item(IconData icon, String label) => Column(
-          children: [
-            Icon(icon, color: DoaColors.blue, size: 28),
-            const SizedBox(height: 8),
-            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-          ],
+    Widget item(IconData icon, String label, {VoidCallback? onTap}) => Expanded(
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                children: [
+                  Icon(icon, color: DoaColors.blue, size: 28),
+                  const SizedBox(height: 8),
+                  Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ),
         );
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.symmetric(vertical: 22),
+      padding: const EdgeInsets.symmetric(vertical: 18),
       decoration: BoxDecoration(
         color: DoaColors.surface,
         borderRadius: BorderRadius.circular(DoaRadius.card),
         border: Border.all(color: DoaColors.border),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          item(Icons.local_shipping, '주문/배송'),
+          item(Icons.local_shipping, '주문/배송',
+              onTap: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const OrderHistoryScreen()))),
           item(Icons.favorite, '찜'),
           item(Icons.confirmation_num, '쿠폰함'),
         ],
