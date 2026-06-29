@@ -419,7 +419,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/ProductListResponse"
                 }
               }
             }
@@ -471,7 +471,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/ProductDetailResponse"
                 }
               }
             }
@@ -739,7 +739,17 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryResponse"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2056,7 +2066,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/SearchProductsResponse"
                 }
               }
             }
@@ -2639,6 +2649,193 @@
           "rejectReason"
         ]
       },
+      "ProductSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sellerId": {
+            "type": "string",
+            "description": "cross-schema plain String — users.sellers.id (P-001)"
+          },
+          "categoryId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "string",
+            "example": "30000.00",
+            "description": "금전 — Decimal 직렬화 문자열 (P-005)"
+          },
+          "status": {
+            "enum": [
+              "DRAFT",
+              "ACTIVE",
+              "OUT_OF_STOCK",
+              "INACTIVE"
+            ],
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "sellerId",
+          "categoryId",
+          "title",
+          "price",
+          "status",
+          "createdAt"
+        ]
+      },
+      "ProductListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductSummaryResponse"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "다음 페이지 cursor (없으면 null)"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ProductImageResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "url",
+          "displayOrder"
+        ]
+      },
+      "VariantResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "string"
+          },
+          "optionName": {
+            "type": "string"
+          },
+          "optionValue": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "price": {
+            "type": "string",
+            "example": "30000.00",
+            "description": "금전 — Decimal 직렬화 문자열 (P-005)"
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "optionName",
+          "optionValue",
+          "sku",
+          "price"
+        ]
+      },
+      "ProductDetailResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sellerId": {
+            "type": "string",
+            "description": "cross-schema plain String — users.sellers.id (P-001)"
+          },
+          "categoryId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "string",
+            "example": "30000.00",
+            "description": "금전 — Decimal 직렬화 문자열 (P-005)"
+          },
+          "status": {
+            "enum": [
+              "DRAFT",
+              "ACTIVE",
+              "OUT_OF_STOCK",
+              "INACTIVE"
+            ],
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductImageResponse"
+            }
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VariantResponse"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "sellerId",
+          "categoryId",
+          "title",
+          "price",
+          "status",
+          "createdAt",
+          "images",
+          "variants"
+        ]
+      },
       "CreateProductDto": {
         "type": "object",
         "properties": {
@@ -2741,6 +2938,29 @@
         },
         "required": [
           "url"
+        ]
+      },
+      "CategoryResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "displayOrder"
         ]
       },
       "StockInDto": {
@@ -3066,6 +3286,88 @@
             "type": "string"
           }
         }
+      },
+      "ProductCardResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sellerId": {
+            "type": "string",
+            "description": "cross-schema plain String — users.sellers.id (P-001)"
+          },
+          "categoryId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "string",
+            "example": "30000.00",
+            "description": "금전 — Decimal 직렬화 문자열 (P-005)"
+          },
+          "status": {
+            "enum": [
+              "DRAFT",
+              "ACTIVE",
+              "OUT_OF_STOCK",
+              "INACTIVE"
+            ],
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductImageResponse"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "sellerId",
+          "categoryId",
+          "title",
+          "price",
+          "status",
+          "createdAt",
+          "images"
+        ]
+      },
+      "SearchProductsResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductCardResponse"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "size": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size"
+        ]
       },
       "PresignDto": {
         "type": "object",

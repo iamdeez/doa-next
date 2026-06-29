@@ -1248,6 +1248,65 @@ export interface components {
         RejectSellerDto: {
             rejectReason: string;
         };
+        ProductSummaryResponse: {
+            id: string;
+            /** @description cross-schema plain String — users.sellers.id (P-001) */
+            sellerId: string;
+            categoryId: string;
+            title: string;
+            description?: string | null;
+            /**
+             * @description 금전 — Decimal 직렬화 문자열 (P-005)
+             * @example 30000.00
+             */
+            price: string;
+            /** @enum {string} */
+            status: "DRAFT" | "ACTIVE" | "OUT_OF_STOCK" | "INACTIVE";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ProductListResponse: {
+            items: components["schemas"]["ProductSummaryResponse"][];
+            /** @description 다음 페이지 cursor (없으면 null) */
+            nextCursor?: string | null;
+        };
+        ProductImageResponse: {
+            id: string;
+            productId: string;
+            url: string;
+            displayOrder: number;
+        };
+        VariantResponse: {
+            id: string;
+            productId: string;
+            optionName: string;
+            optionValue: string;
+            sku: string;
+            /**
+             * @description 금전 — Decimal 직렬화 문자열 (P-005)
+             * @example 30000.00
+             */
+            price: string;
+        };
+        ProductDetailResponse: {
+            id: string;
+            /** @description cross-schema plain String — users.sellers.id (P-001) */
+            sellerId: string;
+            categoryId: string;
+            title: string;
+            description?: string | null;
+            /**
+             * @description 금전 — Decimal 직렬화 문자열 (P-005)
+             * @example 30000.00
+             */
+            price: string;
+            /** @enum {string} */
+            status: "DRAFT" | "ACTIVE" | "OUT_OF_STOCK" | "INACTIVE";
+            /** Format: date-time */
+            createdAt: string;
+            images: components["schemas"]["ProductImageResponse"][];
+            variants: components["schemas"]["VariantResponse"][];
+        };
         CreateProductDto: {
             categoryId: string;
             title: string;
@@ -1277,6 +1336,12 @@ export interface components {
             /** Format: uri */
             url: string;
             displayOrder?: number;
+        };
+        CategoryResponse: {
+            id: string;
+            name: string;
+            slug: string;
+            displayOrder: number;
         };
         StockInDto: {
             quantity: number;
@@ -1381,6 +1446,30 @@ export interface components {
         UpdateReviewDto: {
             rating?: number;
             content?: string;
+        };
+        ProductCardResponse: {
+            id: string;
+            /** @description cross-schema plain String — users.sellers.id (P-001) */
+            sellerId: string;
+            categoryId: string;
+            title: string;
+            description?: string | null;
+            /**
+             * @description 금전 — Decimal 직렬화 문자열 (P-005)
+             * @example 30000.00
+             */
+            price: string;
+            /** @enum {string} */
+            status: "DRAFT" | "ACTIVE" | "OUT_OF_STOCK" | "INACTIVE";
+            /** Format: date-time */
+            createdAt: string;
+            images: components["schemas"]["ProductImageResponse"][];
+        };
+        SearchProductsResponse: {
+            items: components["schemas"]["ProductCardResponse"][];
+            total: number;
+            page: number;
+            size: number;
         };
         PresignDto: {
             /** @enum {string} */
@@ -1736,7 +1825,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["ProductListResponse"];
                 };
             };
         };
@@ -1778,7 +1867,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["ProductDetailResponse"];
                 };
             };
         };
@@ -1967,7 +2056,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CategoryResponse"][];
+                };
             };
         };
     };
@@ -2916,7 +3007,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SearchProductsResponse"];
                 };
             };
         };

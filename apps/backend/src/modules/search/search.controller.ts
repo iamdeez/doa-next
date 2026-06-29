@@ -1,4 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
+import { ApiOkResponse } from '@nestjs/swagger';
+import { SearchProductsResponse } from '../product/dto/product-response.dto';
 import { SearchProductsDto } from './dto/search-products.dto';
 import { SearchService } from './search.service';
 
@@ -9,6 +11,7 @@ export class SearchController {
 
   /** GET /search/products — 키워드·카테고리·가격·정렬 필터 + offset 페이지네이션 */
   @Get('products')
+  @ApiOkResponse({ type: SearchProductsResponse })
   searchProducts(@Query() query: SearchProductsDto) {
     return this.searchService.searchProducts(query);
   }

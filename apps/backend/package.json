@@ -7,7 +7,7 @@
     "dev": "nest start --watch",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "openapi:gen": "nest build && node dist/openapi.js",
+    "openapi:gen": "nest build && NODE_ENV=production node dist/openapi.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",

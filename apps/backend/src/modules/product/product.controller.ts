@@ -11,10 +11,16 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiOkResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../shared/auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../../shared/auth/optional-jwt-auth.guard';
 import { CurrentUser } from '../../shared/auth/current-user.decorator';
 import { AuthenticatedUser } from '../../shared/auth/jwt.strategy';
+import {
+  CategoryResponse,
+  ProductDetailResponse,
+  ProductListResponse,
+} from './dto/product-response.dto';
 import { AddImageDto } from './dto/add-image.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { CreateVariantDto } from './dto/create-variant.dto';
@@ -29,6 +35,7 @@ export class CategoriesController {
   constructor(private readonly productService: ProductService) {}
 
   @Get()
+  @ApiOkResponse({ type: [CategoryResponse] })
   listCategories() {
     return this.productService.listCategories();
   }
@@ -55,6 +62,7 @@ export class ProductController {
 
   /** GET /products — cursor 기반 공개 목록 (ACTIVE+OUT_OF_STOCK) */
   @Get()
+  @ApiOkResponse({ type: ProductListResponse })
   listPublic(@Query() query: ListProductsDto) {
     return this.productService.listPublic(query.cursor, query.limit);
   }
@@ -62,6 +70,7 @@ export class ProductController {
   /** GET /products/:id — 상세 조회, 인증 시 조회 기록 */
   @Get(':id')
   @UseGuards(OptionalJwtAuthGuard)
+  @ApiOkResponse({ type: ProductDetailResponse })
   getDetail(
     @Param('id') productId: string,
     @CurrentUser() user?: AuthenticatedUser,
