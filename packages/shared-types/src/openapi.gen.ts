@@ -1465,8 +1465,49 @@ export interface components {
             totalQuantity?: number;
             description?: string;
         };
+        CouponResponse: {
+            id: string;
+            /** @enum {string} */
+            issuerType: "ADMIN" | "SELLER";
+            /** @description ADMIN: admin userId, SELLER: users.sellers.id (P-001) */
+            issuerId: string;
+            /** @enum {string} */
+            type: "FIXED" | "PERCENTAGE";
+            /**
+             * @description 금전/할인율 — Decimal 직렬화 문자열 (P-005)
+             * @example 5000.00
+             */
+            discountValue: string;
+            /** @description 금전 — PERCENTAGE 최대 할인 상한 (P-005) */
+            maxDiscountAmount?: string | null;
+            /** @description 금전 — 최소 주문 금액 (P-005) */
+            minOrderAmount?: string | null;
+            /** Format: date-time */
+            expiresAt: string;
+            /** @description 발급 한도 (null=무제한) */
+            totalQuantity?: number | null;
+            issuedCount: number;
+            description?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CouponListResponse: {
+            items: components["schemas"]["CouponResponse"][];
+            nextCursor?: string | null;
+        };
         IssueCouponDto: {
             targetUserId: string;
+        };
+        UserCouponResponse: {
+            id: string;
+            couponId: string;
+            /** @enum {string} */
+            status: "unused" | "used" | "expired";
+            /** @description 사용된 주문 id (FR-016) */
+            usedOrderId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            coupon: components["schemas"]["CouponResponse"];
         };
         CreatePaymentDto: {
             orderId: string;
@@ -1566,9 +1607,30 @@ export interface components {
             rating: number;
             content: string;
         };
+        ReviewResponse: {
+            id: string;
+            /** @description orders.order_items.id — 1 orderItem 1 리뷰 (P-001) */
+            orderItemId: string;
+            orderId: string;
+            userId: string;
+            productId: string;
+            /** @description users.sellers.id (P-001) */
+            sellerId: string;
+            /** @description 평점 1~5 */
+            rating: number;
+            content: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         UpdateReviewDto: {
             rating?: number;
             content?: string;
+        };
+        ReviewListResponse: {
+            items: components["schemas"]["ReviewResponse"][];
+            nextCursor?: string | null;
         };
         ProductCardResponse: {
             id: string;
@@ -2350,7 +2412,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CouponListResponse"];
+                };
             };
         };
     };
@@ -2367,11 +2431,13 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CouponResponse"];
+                };
             };
         };
     };
@@ -2390,12 +2456,12 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["UserCouponResponse"];
                 };
             };
         };
@@ -2416,7 +2482,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CouponListResponse"];
+                };
             };
         };
     };
@@ -2433,11 +2501,13 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CouponResponse"];
+                };
             };
         };
     };
@@ -2456,12 +2526,12 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["UserCouponResponse"];
                 };
             };
         };
@@ -2482,7 +2552,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": components["schemas"]["UserCouponResponse"][];
                 };
             };
         };
@@ -3024,11 +3094,13 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ReviewResponse"];
+                };
             };
         };
     };
@@ -3070,7 +3142,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ReviewResponse"];
+                };
             };
         };
     };
@@ -3090,7 +3164,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ReviewListResponse"];
+                };
             };
         };
     };
@@ -3112,7 +3188,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ReviewListResponse"];
+                };
             };
         };
     };

@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { ApiOkResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../shared/auth/jwt-auth.guard';
 import { AdminGuard } from '../../shared/auth/admin.guard';
 import { AuthenticatedUser } from '../../shared/auth/jwt.strategy';
@@ -16,6 +17,11 @@ import { CouponService } from './coupon.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { IssueCouponDto } from './dto/issue-coupon.dto';
 import { ListCouponsDto, ListUserCouponsDto } from './dto/list-coupon.dto';
+import {
+  CouponListResponse,
+  CouponResponse,
+  UserCouponResponse,
+} from './dto/coupon-response.dto';
 
 interface AuthenticatedRequest {
   user: AuthenticatedUser;
@@ -30,6 +36,7 @@ export class AdminCouponController {
 
   /** POST /admin/coupons — 관리자 쿠폰 생성 (FR-001) */
   @Post()
+  @ApiOkResponse({ type: CouponResponse })
   async createCoupon(
     @Req() req: AuthenticatedRequest,
     @Body() dto: CreateCouponDto,
@@ -51,6 +58,7 @@ export class AdminCouponController {
 
   /** GET /admin/coupons — 관리자 쿠폰 목록 (FR-007) */
   @Get()
+  @ApiOkResponse({ type: CouponListResponse })
   async listCoupons(
     @Req() req: AuthenticatedRequest,
     @Query() query: ListCouponsDto,
@@ -64,6 +72,7 @@ export class AdminCouponController {
 
   /** POST /admin/coupons/:id/issue — 관리자 발급 (FR-003) */
   @Post(':id/issue')
+  @ApiOkResponse({ type: UserCouponResponse })
   async issueCoupon(
     @Req() req: AuthenticatedRequest,
     @Param('id') couponId: string,
@@ -86,6 +95,7 @@ export class SellerCouponController {
 
   /** POST /sellers/me/coupons — 판매자 쿠폰 생성 (FR-002) */
   @Post()
+  @ApiOkResponse({ type: CouponResponse })
   async createCoupon(
     @Req() req: AuthenticatedRequest,
     @Body() dto: CreateCouponDto,
@@ -107,6 +117,7 @@ export class SellerCouponController {
 
   /** GET /sellers/me/coupons — 판매자 쿠폰 목록 (FR-006) */
   @Get()
+  @ApiOkResponse({ type: CouponListResponse })
   async listCoupons(
     @Req() req: AuthenticatedRequest,
     @Query() query: ListCouponsDto,
@@ -120,6 +131,7 @@ export class SellerCouponController {
 
   /** POST /sellers/me/coupons/:id/issue — 판매자 발급 (FR-004) */
   @Post(':id/issue')
+  @ApiOkResponse({ type: UserCouponResponse })
   async issueCoupon(
     @Req() req: AuthenticatedRequest,
     @Param('id') couponId: string,
@@ -142,6 +154,7 @@ export class UserCouponController {
 
   /** GET /users/me/coupons — 내 쿠폰 목록 (FR-005) */
   @Get()
+  @ApiOkResponse({ type: [UserCouponResponse] })
   async listMyCoupons(
     @Req() req: AuthenticatedRequest,
     @Query() query: ListUserCouponsDto,

@@ -981,8 +981,15 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouponResponse"
+                }
+              }
+            }
           }
         },
         "summary": "POST /admin/coupons — 관리자 쿠폰 생성 (FR-001)",
@@ -1014,7 +1021,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouponListResponse"
+                }
+              }
+            }
           }
         },
         "summary": "GET /admin/coupons — 관리자 쿠폰 목록 (FR-007)",
@@ -1047,12 +1061,12 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/UserCouponResponse"
                 }
               }
             }
@@ -1079,8 +1093,15 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouponResponse"
+                }
+              }
+            }
           }
         },
         "summary": "POST /sellers/me/coupons — 판매자 쿠폰 생성 (FR-002)",
@@ -1112,7 +1133,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouponListResponse"
+                }
+              }
+            }
           }
         },
         "summary": "GET /sellers/me/coupons — 판매자 쿠폰 목록 (FR-006)",
@@ -1145,12 +1173,12 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/UserCouponResponse"
                 }
               }
             }
@@ -1188,7 +1216,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "$ref": "#/components/schemas/UserCouponResponse"
                   }
                 }
               }
@@ -1885,8 +1913,15 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                }
+              }
+            }
           }
         },
         "summary": "POST /reviews — 리뷰 작성 (FR-021~FR-023)",
@@ -1920,7 +1955,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                }
+              }
+            }
           }
         },
         "summary": "PATCH /reviews/:id — 리뷰 수정 (FR-024)",
@@ -1976,7 +2018,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewListResponse"
+                }
+              }
+            }
           }
         },
         "summary": "GET /reviews/me — 내 리뷰 목록 (FR-026)",
@@ -2018,7 +2067,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewListResponse"
+                }
+              }
+            }
           }
         },
         "summary": "GET /products/:productId/reviews — 상품 리뷰 목록 (FR-025)",
@@ -3373,6 +3429,95 @@
           "expiresAt"
         ]
       },
+      "CouponResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "issuerType": {
+            "enum": [
+              "ADMIN",
+              "SELLER"
+            ],
+            "type": "string"
+          },
+          "issuerId": {
+            "type": "string",
+            "description": "ADMIN: admin userId, SELLER: users.sellers.id (P-001)"
+          },
+          "type": {
+            "enum": [
+              "FIXED",
+              "PERCENTAGE"
+            ],
+            "type": "string"
+          },
+          "discountValue": {
+            "type": "string",
+            "example": "5000.00",
+            "description": "금전/할인율 — Decimal 직렬화 문자열 (P-005)"
+          },
+          "maxDiscountAmount": {
+            "type": "string",
+            "nullable": true,
+            "description": "금전 — PERCENTAGE 최대 할인 상한 (P-005)"
+          },
+          "minOrderAmount": {
+            "type": "string",
+            "nullable": true,
+            "description": "금전 — 최소 주문 금액 (P-005)"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "totalQuantity": {
+            "type": "number",
+            "nullable": true,
+            "description": "발급 한도 (null=무제한)"
+          },
+          "issuedCount": {
+            "type": "number"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "issuerType",
+          "issuerId",
+          "type",
+          "discountValue",
+          "expiresAt",
+          "issuedCount",
+          "createdAt"
+        ]
+      },
+      "CouponListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CouponResponse"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
       "IssueCouponDto": {
         "type": "object",
         "properties": {
@@ -3382,6 +3527,44 @@
         },
         "required": [
           "targetUserId"
+        ]
+      },
+      "UserCouponResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "couponId": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "unused",
+              "used",
+              "expired"
+            ],
+            "type": "string"
+          },
+          "usedOrderId": {
+            "type": "string",
+            "nullable": true,
+            "description": "사용된 주문 id (FR-016)"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "coupon": {
+            "$ref": "#/components/schemas/CouponResponse"
+          }
+        },
+        "required": [
+          "id",
+          "couponId",
+          "status",
+          "createdAt",
+          "coupon"
         ]
       },
       "CreatePaymentDto": {
@@ -3688,6 +3871,60 @@
           "content"
         ]
       },
+      "ReviewResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orderItemId": {
+            "type": "string",
+            "description": "orders.order_items.id — 1 orderItem 1 리뷰 (P-001)"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "string"
+          },
+          "sellerId": {
+            "type": "string",
+            "description": "users.sellers.id (P-001)"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "평점 1~5"
+          },
+          "content": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "orderItemId",
+          "orderId",
+          "userId",
+          "productId",
+          "sellerId",
+          "rating",
+          "content",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
       "UpdateReviewDto": {
         "type": "object",
         "properties": {
@@ -3700,6 +3937,24 @@
             "type": "string"
           }
         }
+      },
+      "ReviewListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewResponse"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items"
+        ]
       },
       "ProductCardResponse": {
         "type": "object",

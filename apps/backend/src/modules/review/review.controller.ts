@@ -12,12 +12,14 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiOkResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../shared/auth/jwt-auth.guard';
 import { AuthenticatedUser } from '../../shared/auth/jwt.strategy';
 import { ReviewService } from './review.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { ListReviewsDto } from './dto/list-review.dto';
+import { ReviewListResponse, ReviewResponse } from './dto/review-response.dto';
 
 interface AuthenticatedRequest {
   user: AuthenticatedUser;
@@ -33,6 +35,7 @@ export class ReviewController {
   /** POST /reviews — 리뷰 작성 (FR-021~FR-023) */
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiOkResponse({ type: ReviewResponse })
   async createReview(
     @Req() req: AuthenticatedRequest,
     @Body() dto: CreateReviewDto,
@@ -46,6 +49,7 @@ export class ReviewController {
 
   /** PATCH /reviews/:id — 리뷰 수정 (FR-024) */
   @Patch(':id')
+  @ApiOkResponse({ type: ReviewResponse })
   async updateReview(
     @Req() req: AuthenticatedRequest,
     @Param('id') reviewId: string,
@@ -66,6 +70,7 @@ export class ReviewController {
 
   /** GET /reviews/me — 내 리뷰 목록 (FR-026) */
   @Get('me')
+  @ApiOkResponse({ type: ReviewListResponse })
   async listMyReviews(
     @Req() req: AuthenticatedRequest,
     @Query() query: ListReviewsDto,
@@ -86,6 +91,7 @@ export class ProductReviewController {
 
   /** GET /products/:productId/reviews — 상품 리뷰 목록 (FR-025) */
   @Get()
+  @ApiOkResponse({ type: ReviewListResponse })
   async listProductReviews(
     @Param('productId') productId: string,
     @Query() query: ListReviewsDto,
