@@ -1,3 +1,23 @@
+## [010-coupon-discount-validation] 구현 완료
+
+> base `6fe1588`(009 완료) → `2664da3`(010 완료). 변경 라인은 `git diff 6fe1588 2664da3 -- apps/backend`로 재생성. 마이그레이션 없음(스키마 변경 0 — Coupon 테이블 기존 Decimal 필드 재사용).
+
+**변경 파일**:
+- `apps/backend/src/modules/coupon/coupon.service.ts`: `_assertValidDiscount(data)` 신규(생성 입력 검증 — `discountValue.lte(0) → 400`, `PERCENTAGE && gt(100) → 400`, `maxDiscountAmount.lt(0) → 400`, `minOrderAmount.lt(0) → 400`) + `createCoupon`·`createSellerCoupon`(판매자는 `getApprovedSeller` 이후) 에서 호출(위반 시 repo 미호출, 저장 차단). `_calcDiscount` 가 FIXED·PERCENTAGE 결과를 `Prisma.Decimal.max(0, min(...))` 로 0 floor(음수 할인=과다청구 심층 방어). `BadRequestException` import 추가.
+- `apps/backend/src/modules/coupon/coupon.service.spec.ts`: 단위 테스트 6건 추가 — describe `createCoupon — discountValue 검증 (SEC-001)` 5건(음수·0·PERCENTAGE>100·음수 maxDiscount·판매자 음수) + `validateAndCalculateDiscount` 내 floor 방어 1건(음수 discountValue → discountAmount='0').
+
+**검증**: tsc 0 / unit 25 suites·245 PASS(009 대비 +6 = 쿠폰 검증 5 + floor 방어 1, 회귀 0) / e2e+static 16 suites·84 PASS(변화 없음 — 010 전용 신규 e2e/static 없음). DTO·repository·schema·마이그레이션 변경 0(service 레벨만).
+
+**해결**: **SEC-001(쿠폰 할인값 검증 누락 과다청구, Medium) / GAP-003 완전 해결** — 생성 검증(`_assertValidDiscount`, 주) + 계산 0 floor(`_calcDiscount`, 심층) + 단위 테스트 6건의 이중 방어. 악의적 admin/판매자가 음수 discountValue 쿠폰을 생성→발급→적용 시 `totalAmount−(음수)` 과다청구하는 경로 차단. 004-review-coupon/security/security-report.md·gaps.md·test/coverage-gap.md 의 SEC-001 관련 항목을 RESOLVED(010)로 갱신.
+
+**후속 작업 시 주의사항**:
+- **검증 권위는 service 단일**: `CreateCouponDto` 는 `@IsDecimal()` 만(010 미변경)이며 부호·범위 보장은 `_assertValidDiscount` 가 단일 권위로 강제한다(PERCENTAGE 조건부 ≤100 은 class-validator 타입 분기 곤란). 향후 쿠폰 생성 경로(신규 발급 메서드 등)를 추가하면 반드시 `_assertValidDiscount` 호출을 포함해야 동일 방어가 유지된다.
+- **DTO 레벨 음수 거부 e2e 부재**: HTTP body 음수 discountValue → 400 의 end-to-end 통합 테스트는 없다(service 단위 검증으로 갈음 — coverage-gap.md). 후속 보강 권장.
+- **minOrderAmount 음수 거부 전용 테스트 부재**: FR-001 (d) 분기는 구현·동작하나 전용 단위 테스트가 없다(동형 분기 maxDiscountAmount 음수 — SC-004 로 커버). SC-004 와 동형 테스트 추가 권장.
+- **계산 0 floor 는 최종 안전망**: `_calcDiscount` 의 `Decimal.max(0, ...)` 는 생성 검증을 우회하거나 기존에 잔존하는 음수 쿠폰에 대한 심층 방어다. 향후 할인 계산 로직 변경 시 이 0 floor 를 제거하지 않도록 주의(SC-006 단언으로 회귀 탐지).
+
+---
+
 ## [009-notification-events] 구현 완료
 
 > base `e97a142`(008 완료) → `b3793fa`(009 완료). 변경 라인은 `git diff e97a142 b3793fa -- apps/backend`로 재생성. 마이그레이션 없음(스키마 변경 0 — 006 Notification 테이블·enum 재사용).

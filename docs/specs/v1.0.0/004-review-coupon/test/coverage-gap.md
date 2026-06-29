@@ -9,10 +9,26 @@
 
 ## 목차
 
+- [선행 보안 발견 후속 갱신 (SEC-001)](#선행-보안-발견-후속-갱신-sec-001)
 - [미커버 SC 목록](#미커버-sc-목록)
 - [SC-003 상세](#sc-003-상세)
 - [SC-034 상세](#sc-034-상세)
 - [레이블 불일치 기록](#레이블-불일치-기록)
+
+---
+
+## 선행 보안 발견 후속 갱신 (SEC-001)
+
+> 본 004 coverage-gap.md 는 SC-003·SC-034 의 테스트 커버리지 공백을 다루며, SEC-001(쿠폰 할인값 검증
+> 누락)은 security-report.md / gaps.md(GAP-003)에서 추적되었다. 추적성 유지를 위해 그 해결 상태를 여기에도 명시한다.
+
+- **SEC-001 / GAP-003(쿠폰 discountValue 양수 검증 누락, Medium)**: **010-coupon-discount-validation
+  (커밋 2664da3)에서 해결**. `CouponService._assertValidDiscount` 생성 검증(음수/0/PERCENTAGE>100/음수
+  maxDiscount·minOrder → 400 BadRequest, repo 미호출) + `_calcDiscount` 의 `Prisma.Decimal.max(0, …)`
+  0 floor + 단위 테스트 6건(생성 검증 5 + floor 방어 1)으로 과다청구 경로 차단. 상세 커버리지:
+  `docs/specs/v1.0.0/010-coupon-discount-validation/test/coverage.md`(SC-001~006 PASS).
+- **잔여(010 후속 보강 권고)**: DTO 레벨 음수 거부 통합 e2e·`minOrderAmount<0` 전용 단위 테스트는
+  010 coverage-gap.md 에 후속 보강 권고로 기록(기능 결함 위험 낮음 — 핵심 분기는 단위 테스트로 직접 커버).
 
 ---
 

@@ -55,5 +55,5 @@
 - **내용**: `CreateCouponDto`의 `discountValue`, `maxDiscountAmount`, `minOrderAmount` 필드가 `@IsDecimal()` 데코레이터만 가지고 있어 음수 값을 허용한다. `plan.md §핵심 설계 L74`는 "`discountValue`(양수, PERCENTAGE 는 1~100) 검증(DTO + service)"을 명시하나 실제 DTO 구현에 `@Min(0)` 또는 `@IsPositive()` 적용이 누락되었다. `CouponService._calcDiscount`도 음수 `discountValue`를 가드하지 않아, FIXED 쿠폰에서 `Decimal.min(-5000, totalAmount) = -5000` → `discountAmount = -5000` → `payment: totalAmount - (-5000) = totalAmount + 5000` 으로 고객 과다청구가 발생할 수 있다. 공격 주체는 APPROVED 판매자 또는 관리자로 한정되며 내부자 위협 범위다.
 - **수정 방향**: `CreateCouponDto.discountValue`에 `@IsPositive()` 또는 `@Min(0.01)` 추가. PERCENTAGE 타입의 경우 `@Max(100)` 추가(단 DTO 레벨에서 타입 조건부 검증은 class-validator 제약상 service 레벨 검증으로 보완). `maxDiscountAmount`, `minOrderAmount`도 `@IsPositive()` 또는 `@Min(0)` 추가.
 - **영향**: 중간 — 악의적 관리자/판매자에 의한 고객 과다청구 가능
-- **상태**: OPEN — 후속 spec 또는 핫픽스 권장
+- **상태**: **RESOLVED (010-coupon-discount-validation, 커밋 2664da3)** — `CouponService._assertValidDiscount` 가 `createCoupon`·`createSellerCoupon` 에서 `discountValue≤0`/`PERCENTAGE>100`/음수 `maxDiscountAmount`/음수 `minOrderAmount` 를 400 BadRequest 로 거부(repo 미호출, 저장 차단) + `_calcDiscount` 가 `Prisma.Decimal.max(0, …)` 0 floor(음수 할인 차단) + 단위 테스트 6건. 검증은 DTO 가 아닌 service 레벨로 보완(PERCENTAGE 조건부 ≤100 분기). 상세: `docs/specs/v1.0.0/010-coupon-discount-validation/`
 </content>

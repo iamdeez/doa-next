@@ -54,10 +54,10 @@
 | 검토 대상 파일 수 | 13개 |
 | Critical 건수 | 0 |
 | High 건수 | 0 |
-| Medium 건수 | 1 (SEC-001) |
-| Low 건수 | 1 (SEC-002) |
+| Medium 건수 | 1 (SEC-001) — **RESOLVED (010, 커밋 2664da3)**, 감사 시점 사실 보존 위해 건수 표기 유지 |
+| Low 건수 | 1 (SEC-002) — 권고 유지(010 범위 외) |
 | 전체 취약점 건수 | 2 |
-| 판정 | **COMPLETE** — Critical/High 0건, 권고사항으로 기록 |
+| 판정 | **COMPLETE** — Critical/High 0건, 권고사항으로 기록. SEC-001(Medium)은 후속 010-coupon-discount-validation 에서 RESOLVED(아래 "취약점 목록 §SEC-001 상태" 참조) |
 
 ---
 
@@ -85,7 +85,7 @@
 | **공격 경로** | 1. 악의적 Admin 또는 APPROVED 판매자가 음수 `discountValue`로 쿠폰 생성 (FR-001/FR-002 엔드포인트) → 2. 대상 사용자에게 발급 → 3. 사용자가 "할인 쿠폰"으로 인지하고 주문에 적용 → 4. `discountAmount` 음수 저장 → 5. `payment.pay`에서 `totalAmount - (음수) = totalAmount + 양수` 청구 |
 | **공격자 요건** | 인증된 Admin 또는 APPROVED 판매자 (내부자 위협) |
 | **수정 방향** | `CreateCouponDto.discountValue`에 `@Min(0.01)` 또는 `@IsPositive()` 추가. PERCENTAGE 타입에 대해 `@Max(100)` 추가 (service 레벨 타입 조건부 검증으로 보완). `maxDiscountAmount`·`minOrderAmount`에 `@Min(0)` 추가. `_calcDiscount` 내 `discountValue ≤ 0` 방어 분기 추가 권장 |
-| **상태** | OPEN (gaps.md GAP-003에 기록) |
+| **상태** | **RESOLVED (010-coupon-discount-validation, 커밋 2664da3)** — `CouponService._assertValidDiscount` 생성 검증(`createCoupon`·`createSellerCoupon` 호출: `discountValue≤0`/`PERCENTAGE>100`/음수 `maxDiscountAmount`/음수 `minOrderAmount` → 400 BadRequest, repo 미호출) + `_calcDiscount` 의 `Prisma.Decimal.max(0, …)` 0 floor 이중 방어 + 단위 테스트 6건(생성 검증 5 + floor 방어 1). 검증 권위는 DTO 가 아닌 service 레벨로 단일화(PERCENTAGE 조건부 ≤100 분기). 상세: `docs/specs/v1.0.0/010-coupon-discount-validation/security/security-report.md` |
 
 ---
 
