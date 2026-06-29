@@ -280,7 +280,9 @@ export class OrderService {
       );
     }
 
-    await this.orderRepository.updateStatus(orderId, OrderStatus.completed);
+    await this.orderRepository.updateStatus(orderId, OrderStatus.completed, {
+      completedAt: new Date(),
+    });
     await this.orderRepository.appendEvent({
       orderId,
       fromStatus: order.status,
@@ -313,7 +315,9 @@ export class OrderService {
     const orders = await this.orderRepository.findDeliveredBefore(cutoff);
     for (const order of orders) {
       // delivered → completed (SYSTEM actor — markConfirmed 는 pending→confirmed 전용)
-      await this.orderRepository.updateStatus(order.id, OrderStatus.completed);
+      await this.orderRepository.updateStatus(order.id, OrderStatus.completed, {
+        completedAt: now,
+      });
       await this.orderRepository.appendEvent({
         orderId: order.id,
         fromStatus: OrderStatus.delivered,

@@ -681,7 +681,12 @@ describe('OrderService', () => {
 
       await service.complete(FIXED_USER_ID, FIXED_ORDER_ID);
 
-      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith(FIXED_ORDER_ID, 'completed');
+      // 012 GAP-005-02: completed 전이 시 completedAt 기록(정산 기준 시각)
+      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith(
+        FIXED_ORDER_ID,
+        'completed',
+        { completedAt: expect.any(Date) },
+      );
     });
   });
 
@@ -731,6 +736,12 @@ describe('OrderService', () => {
       // findDeliveredBefore에 now - 7일 날짜 전달 검증
       expect(mockOrderRepository.findDeliveredBefore).toHaveBeenCalledWith(
         expect.any(Date),
+      );
+      // 012 GAP-005-02: 자동 확정도 completedAt(=now) 기록
+      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith(
+        'order-auto-001',
+        'completed',
+        { completedAt: now },
       );
       expect(count).toBe(eligibleOrders.length);
     });

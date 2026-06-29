@@ -410,6 +410,8 @@ model Order {
   shippingAddressSnapshot Json
   /// 배송 완료 일시 — 자동 구매 확정 기준 (FR-027)
   deliveredAt             DateTime?
+  /// 구매 확정(completed) 일시 — 정산 집계 기준 시각 (012 GAP-005-02)
+  completedAt             DateTime?
   createdAt               DateTime    @default(now())
   items                   OrderItem[]
   events                  OrderEvent[]

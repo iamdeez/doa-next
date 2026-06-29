@@ -112,7 +112,7 @@ export class OrderRepository {
   async updateStatus(
     orderId: string,
     status: OrderStatus,
-    extra?: { deliveredAt?: Date },
+    extra?: { deliveredAt?: Date; completedAt?: Date },
   ): Promise<Order> {
     return this.prisma.tx.order.update({
       where: { id: orderId },
@@ -153,7 +153,8 @@ export class OrderRepository {
     const orders = await this.prisma.tx.order.findMany({
       where: {
         status: OrderStatus.completed,
-        createdAt: { gte: periodStart, lte: periodEnd },
+        // 정산 기준 시각 = 구매 확정(completed) 일시 (012 GAP-005-02)
+        completedAt: { gte: periodStart, lte: periodEnd },
         items: { some: { sellerId } },
       },
       include: { items: { where: { sellerId } } },
