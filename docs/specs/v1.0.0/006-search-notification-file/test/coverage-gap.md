@@ -25,7 +25,7 @@
 
 | 항목 | 미커버 시나리오 | 카테고리 | 검증 방법 | 담당 | 비고 |
 |---|---|---|---|---|---|
-| 알림 도메인 이벤트 연동 | 주문·배송·정산·리뷰 이벤트 → `create()` → 사용자 조회 통합 흐름 | (3) 기능 미구현 | 후속 spec: 이벤트 핸들러 연동 + 통합 시나리오 테스트 | 후속 spec | Low, 기능 공백 (GAP-006-01) |
+| 알림 도메인 이벤트 연동 | 주문·배송·정산·리뷰 이벤트 → `create()` → 사용자 조회 통합 흐름 | (3) 기능 미구현 | 후속 spec: 이벤트 핸들러 연동 + 통합 시나리오 테스트 | 후속 spec | **RESOLVED — 009-notification-events 에서 해결**(GAP-006-01). `NotificationEventsHandler`(@OnEvent 4종)가 이벤트 구독→알림 생성. 단, 이벤트→DB→조회 end-to-end 통합 테스트는 009 에서도 후속 보강 권고로 남김(009 coverage-gap.md) |
 | 파일 PENDING→UPLOADED 확정(confirm) | 업로드 후 상태 전이·size 기록 | (3) 기능 미구현 | 후속 spec: confirm 엔드포인트 + 상태 전이 테스트 | 후속 spec | Low (GAP-006-02) |
 | `GET /files/:id` 소유권 검증 | 비공개 파일 메타 타인 노출 차단 | (3) 기능 미구현 | 비공개 purpose 도입 시 ownerId 검증 + 403 테스트 | 후속 spec | Low (SEC-FIND-006-01) |
 | presign contentType allowlist·크기 상한 | 비허용 MIME·과대 크기 업로드 거부 | (3) 기능 미구현 | 실제 R2 전환 시 content-type 바인딩·크기 제한 + 거부 테스트 | 후속 spec | Low (SEC-FIND-006-02) |
@@ -39,7 +39,12 @@
 
 ## 알림 도메인 이벤트 미연동 (상세)
 
-**현상**: `NotificationService.create()` 가 export 되었으나 실제로 호출하는 도메인 이벤트 핸들러가 없다.
+> **RESOLVED — 009-notification-events(커밋 b3793fa)에서 해결.** 아래 현상·근본 원인은 006 시점 기준
+> 기록이며, 009 가 `NotificationEventsHandler`(@OnEvent 4종)로 이벤트 구독→알림 생성을 구현하여 해소했다.
+> 단, 이벤트→DB 알림 생성→조회 end-to-end 통합 시나리오 테스트는 009 에서도 후속 보강 권고로 남아 있다
+> (009 coverage-gap.md). 상세는 `docs/specs/v1.0.0/009-notification-events/` 참조.
+
+**현상**(006 시점): `NotificationService.create()` 가 export 되었으나 실제로 호출하는 도메인 이벤트 핸들러가 없다.
 
 **근본 원인 (코드 근거)**:
 1. `NotificationModule` 이 `NotificationService` 를 `exports` 하고, `NotificationType` enum 에 도메인

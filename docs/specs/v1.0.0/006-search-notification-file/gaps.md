@@ -26,7 +26,7 @@
 - **내용**: `NotificationService.create()` 가 공개 진입점으로 export 되었으나, 주문·배송·정산·리뷰 이벤트 핸들러에서 호출하는 연동이 미구현이다. `NotificationType` enum 에 도메인 이벤트 종류(`ORDER_PLACED`·`ORDER_SHIPPED`·`SETTLEMENT_CREATED`·`REVIEW_RECEIVED`)를 열거했으나 실제 호출 측은 0(grep 결과 notification 모듈 자체 테스트만 호출). 따라서 알림이 실제로 생성되는 경로가 없으며(공개 진입점만 제공) 이벤트→알림→조회 통합 시나리오는 미검증이다.
 - **수정 방향**: order/shipping/settlement/review 이벤트 핸들러(또는 서비스)에서 `NotificationService.create()` 호출 연동 + 통합 시나리오 테스트 추가.
 - **영향**: 낮음 — 기능 공백(설계상 진입점 우선 제공, 이벤트 연동 후속 분리). 보안 영향 없음.
-- **상태**: OPEN — 후속 spec 위임.
+- **상태**: **RESOLVED (009-notification-events, 커밋 b3793fa)** — `NotificationEventsHandler`(@OnEvent 4종)가 order.created·shipping.shipped·settlement.created·review.created 를 구독하여 알림 생성. NotificationType 4종 전부 실제 생성 경로 확보. 수신자 해석 read-only Service DI(P-001), 실패 격리(safeNotify). 통합 시나리오 e2e 는 후속 보강 권고로 남김(009 coverage-gap.md). 해결 검증 상세는 `docs/specs/v1.0.0/009-notification-events/` 참조.
 
 ## GAP-006-02
 

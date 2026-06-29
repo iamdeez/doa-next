@@ -25,7 +25,7 @@
 - **내용**: 정산 생성이 중복 집계를 차단하지 않는다. (1) `getCompletedItemsForSettlement` 가 기간 내 모든 `completed` 주문항목을 반환하며 이미 정산에 포함된 항목을 제외하지 않는다. (2) `SettlementItem.orderItemId` 에 unique 제약이 없다. 따라서 관리자가 동일/겹치는 기간으로 재정산 시 동일 `orderItemId` 가 복수 정산에 중복 집계되어 중복 지급액이 산정될 수 있다. 이를 막는 production 로직·테스트 모두 부재.
 - **수정 방향**: (1) `SettlementItem.orderItemId @unique`. (2) `getCompletedItemsForSettlement` 에서 기집계 항목 제외. (3) 중복정산 거부 테스트 추가.
 - **영향**: 중간 — admin-only 트리거이므로 외부 악용이 아닌 운영 절차 위험. 금전 정합성(P-005) 설계 공백.
-- **상태**: OPEN — 후속 정산 보강 spec 위임. security-report.md SEC-FIND-005-01 과 동일 사안.
+- **상태**: **RESOLVED (008-settlement-idempotency, 커밋 e97a142)** — 수정 방향 (1)~(3) 전부 구현: `SettlementItem.orderItemId @unique` + `findSettledOrderItemIds` 기집계 제외 필터 + 멱등성 단위 테스트 2건. security-report.md SEC-FIND-005-01 과 동일 사안(양쪽 RESOLVED). 해결 검증 상세는 `docs/specs/v1.0.0/008-settlement-idempotency/` 참조.
 
 ## GAP-005-02
 
@@ -46,4 +46,4 @@
 - **코드 검증**: migration.sql 첫 5개 CreateEnum/CreateTable 이 `commerce.CouponIssuerType`·`CouponType`·`UserCouponStatus`·`commerce.coupons`·`user_coupons`·`reviews`(004) 이며, 그 뒤에 `orders.ShipmentStatus`·`settlements.SettlementStatus`·`shipments`·`shipment_tracking`·`settlements`·`settlement_items`(005) 가 이어진다. DB 는 정상 동기화 상태이며 기능 영향 없음.
 - **수정 방향**: 마이그레이션 히스토리 정리(004 부분을 별도 마이그레이션으로 분리)는 백엔드 전체 완료 후 별도 검토.
 - **영향**: 낮음 — DB 정상 동기화. 향후 마이그레이션 되돌리기 시 004 테이블도 영향받으므로 히스토리 정리 시 주의.
-- **상태**: ACKNOWLEDGED — 백엔드 전체 완료 후 마이그레이션 히스토리 정리 검토.
+- **상태**: **WONTFIX / accepted (2026-06-29 사용자 결정)** — 그대로 둔다. 근거: `migrate deploy` 가 init→catalog→003→005→… 순서대로 전부 생성하여 정상 동작하고 `migrate status` 가 up-to-date. 적용 완료된 마이그레이션 폴더를 분할·개명하면 `_prisma_migrations` 적용 기록과 어긋나 기존 환경(dev DB 포함)을 깨뜨릴 위험이 라벨 불일치(cosmetic)보다 크다. 그린필드라 전체 squash 리셋은 가능하나, **운영 배포 직전 필요 시에만** 단일 baseline 재생성으로 재검토한다.

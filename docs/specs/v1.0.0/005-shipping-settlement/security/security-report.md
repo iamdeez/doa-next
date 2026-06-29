@@ -85,7 +85,7 @@
 | **공격자 요건** | 관리자(AdminGuard 통과 필요) — 외부 악용이 아닌 내부 운영 절차 오류 범위 |
 | **실질 위험** | 중간 — 트리거가 admin-only 이므로 외부 공격 표면이 아니다. 다만 운영 실수(중복/겹치는 기간 재정산)로 판매자 과다 지급액이 산정될 수 있어 금전 정합성(P-005) 관점의 설계 공백이다. |
 | **수정 방향** | (1) `SettlementItem.orderItemId` 에 `@unique` 추가(DB 수준 중복 차단). (2) `getCompletedItemsForSettlement` 에서 기존 `settlement_items` 에 포함된 `orderItemId` 제외. (3) 중복정산 거부 단위 테스트 추가. |
-| **상태** | OPEN (gaps.md GAP-005-01 에 기록, 후속 정산 보강 spec 위임) |
+| **상태** | **RESOLVED (008-settlement-idempotency, 커밋 e97a142)** — 수정 방향 (1)~(3) 전부 구현됨: `SettlementItem.orderItemId @unique`(`settlement_items_orderItemId_key`) + `SettlementService.createSettlement` 의 `findSettledOrderItemIds` 기집계 제외 필터 + 멱등성 단위 테스트 2건(일부/전체 기집계). 코드+DB제약+테스트 3중 방어로 완전 해결. 검증 상세는 `docs/specs/v1.0.0/008-settlement-idempotency/security/security-report.md` 의 "SEC-FIND-005-01 해결 검증" 참조. |
 
 ---
 

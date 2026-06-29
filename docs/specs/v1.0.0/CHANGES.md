@@ -1,3 +1,50 @@
+## [009-notification-events] 구현 완료
+
+> base `e97a142`(008 완료) → `b3793fa`(009 완료). 변경 라인은 `git diff e97a142 b3793fa -- apps/backend`로 재생성. 마이그레이션 없음(스키마 변경 0 — 006 Notification 테이블·enum 재사용).
+
+**변경 파일**:
+- `apps/backend/src/modules/notification/notification.events.ts`: `NotificationEventsHandler` 신규(@Injectable, @OnEvent 4종) — 구독자 패턴으로 도메인 이벤트 구독 후 알림 생성. order.created→구매자 ORDER_PLACED, shipping.shipped→`getOrderOwnership(orderId).userId` 구매자 ORDER_SHIPPED, settlement.created→`getUserIdBySellerId` 판매자 SETTLEMENT_CREATED, review.created→`getSellerIdByProductId`→`getUserIdBySellerId` 판매자 REVIEW_RECEIVED. 수신자 해석 read-only Service DI(P-001). `safeNotify`(try/catch+Logger) 실패 격리 — 알림 실패가 원 흐름에 전파 안 됨. 수신자 미해석(null) 시 알림 생략.
+- `apps/backend/src/modules/notification/notification.events.spec.ts`: 핸들러 단위 테스트 신규 8건(SC-001~005 — 4종 이벤트 happy + 격리/미해석/소유권 예외).
+- `apps/backend/src/modules/notification/notification.module.ts`: imports(Order·Seller·Product) + `NotificationEventsHandler` provider 추가. 순환 의존 없음(도메인 모듈은 notification 미import — AppModule 부팅 검증).
+- `apps/backend/src/modules/order/order.events.ts`·`order.service.ts`: `OrderCreatedPayload{orderId,userId}` + `createOrder` 커밋 후 `order.created` emit(additive, EventEmitter2 DI). `order.service.spec.ts`: EventEmitter2 mock 추가(회귀 0).
+- `apps/backend/src/modules/settlement/settlement.events.ts`·`settlement.service.ts`: `SETTLEMENT_EVENTS.CREATED` + `SettlementCreatedPayload{settlementId,sellerId}` + `createSettlement` 커밋 후 `settlement.created` emit(additive, 식별자만·금액 미포함). `settlement.service.spec.ts`: EventEmitter2·onAfterCommit mock 추가(회귀 0).
+- `apps/backend/src/modules/seller/seller.service.ts`: `getUserIdBySellerId(sellerId)` read-only 추가(additive — sellers 자기 스키마, 미존재 null).
+- `apps/backend/src/modules/product/product.service.ts`: `getSellerIdByProductId(productId)` read-only 추가(additive — products 자기 스키마, 미존재 null).
+
+**검증**: tsc 0 / unit 25 suites·239 PASS(008 대비 +8 = notification.events.spec 8, 회귀 0) / e2e+static 16 suites·84 PASS(변화 없음 — 009 전용 신규 e2e 없음) / AppModule 부팅 정상(NotificationModule imports Order/Seller/Product + EventsHandler provider, 순환 의존 없음). 마이그레이션 없음.
+
+**해결**: **GAP-006-01(알림 도메인 이벤트 미연동, Low) 완전 해결** — NotificationType 4종(ORDER_PLACED·ORDER_SHIPPED·SETTLEMENT_CREATED·REVIEW_RECEIVED) 전부 실제 생성 경로 확보. 006-search-notification-file/gaps.md·coverage-gap.md 의 해당 항목을 RESOLVED(009)로 갱신.
+
+**후속 작업 시 주의사항**:
+- **이벤트→알림 생성→조회 e2e 부재**: 핸들러 단위 테스트(mock)로 4종 분기·수신자 해석·격리를 직접 단언하나, 실 emit→DB insert→`GET /notifications` 조회의 end-to-end 통합 시나리오 테스트는 미작성(coverage-gap.md). 후속 보강 권장.
+- **알림 전달 보장 없음**: `safeNotify` 는 실패를 격리(로깅)할 뿐 재시도하지 않는다. at-least-once 전달이 필요해지면 outbox·재시도 큐 도입 검토(범위 외).
+- **수신자 해석 캐싱 없음**: 매 이벤트마다 Service DI findById 실시간 조회. 이벤트량 급증 시 캐싱 검토 가능(현재 부재가 곧 상태).
+- **after-commit emit 누적**: `settlement.service.ts` 는 008(멱등 필터)과 009(settlement.created emit)가 동일 메서드에 누적됐다. 향후 정산 흐름 변경 시 멱등 제외 → 커밋 → emit 순서·EventEmitter2/onAfterCommit DI 정합성 재확인 필요.
+
+---
+
+## [008-settlement-idempotency] 구현 완료
+
+> base `cf2c3d1` → `e97a142`(008 완료). 변경 라인은 `git diff cf2c3d1 e97a142 -- apps/backend`로 재생성.
+
+**변경 파일**:
+- `apps/backend/prisma/schema.prisma`: `SettlementItem.orderItemId` 에 `@unique` 추가(주석: 동일 주문항목 중복 정산 DB 수준 차단 — 008 SEC-FIND-005-01). 신규 테이블·컬럼·enum 0.
+- `apps/backend/prisma/migrations/20260629183631_008_settlement_item_orderitem_unique/migration.sql`: `settlement_items_orderItemId_key` UNIQUE INDEX 생성(2줄). `migrate dev` 가 UNIQUE 경고로 비-TTY 실패 → 수동 폴더 생성 후 `migrate deploy` 적용(적용 전 DB 중복 0건 확인).
+- `apps/backend/src/modules/settlement/settlement.repository.ts`: `findSettledOrderItemIds(orderItemIds)` 신규 — 자기 소유 테이블(`settlement_items`)에서 `orderItemId IN (...)` 조회 후 매칭 id 반환. 빈 입력 즉시 `[]`(P-001).
+- `apps/backend/src/modules/settlement/settlement.service.ts`: `createSettlement` 이 후보(`getCompletedItemsForSettlement`) 중 기집계 orderItemId 를 `Set` 으로 제외 후 `totalSales`·`commission`(ROUND_HALF_UP)·`payoutAmount` 를 Prisma.Decimal 로 재계산. 남은 항목 0건이면 `createItems` 미호출(금액 0 정산 생성).
+- `apps/backend/src/modules/settlement/settlement.service.spec.ts`: 멱등성 단위 테스트 2건 추가 — 일부 기집계→해당 항목만 집계(SC-001), 전체 기집계→0/createItems 미호출(SC-002).
+
+**검증**: tsc 0 / unit 24 suites·231 PASS(007 대비 +2 = 멱등성 2, 회귀 0) / e2e+static 16 suites·84 PASS(변화 없음) / 마이그레이션 `settlement_items_orderItemId_key` UNIQUE INDEX 적용(`migrate status` up-to-date).
+
+**해결**: **SEC-FIND-005-01(정산 중복집계, Medium) / GAP-005-01 완전 해결** — 애플리케이션 멱등 필터(`findSettledOrderItemIds`) + DB UNIQUE 제약(`orderItemId @unique`) + 단위 테스트의 3중 방어. 005-shipping-settlement/security/security-report.md·gaps.md 의 해당 항목을 RESOLVED(008)로 갱신.
+
+**후속 작업 시 주의사항**:
+- **DB UNIQUE P2002 자동 단언 부재**: 동시 재정산 경합 시 두 번째 insert 가 P2002 로 거부·롤백됨을 검증하는 통합 테스트가 없다(방어 심층화 — SC-003 은 schema/migration 구조 검증으로 갈음). 후속 통합 테스트(실 PostgreSQL + 동시 호출) 보강 권장.
+- **정산 취소·정정 시 @unique 점유 해제 부재**: 현재 정산은 생성·조회만 지원하며 취소/정정 흐름이 없다. 취소·정정 도입 시 이미 집계된 `orderItemId` 의 UNIQUE 점유 해제 전략 필요.
+- **마이그레이션 수동 적용 절차**: 기존 테이블에 UNIQUE 추가는 `migrate dev` 가 비-TTY 에서 실패하므로, 적용 전 중복 0건 확인 후 수동 폴더 생성 + `migrate deploy` 절차를 따른다(db-design/migrations/README.md).
+
+---
+
 ## [007-banner-stats-admin] 구현 완료
 
 **변경 파일**:

@@ -19,8 +19,9 @@
 
 > 001~007 완료. `apps/backend`(NestJS **18모듈 전부 실구현** — auth·user·seller·product·inventory·cart·order·payment·coupon·review·shipping·settlement·search·notification·file·banner·stats·admin),
 > Prisma **29테이블**·JWT·AdminGuard·ALS 트랜잭션·pg-boss·쿠폰(서버할인·이중사용방지)·리뷰(orderItem)·배송(송장·추적·상태전이)·정산(Decimal 집계)·검색·알림·파일(R2 Port+stub)·배너·통계·운영·Docker·CI 실재.
-> 단위/통합 테스트: unit 229 PASS(24 suites) + e2e/static 84 PASS(16 suites). (005~007 경량 모드 구현 후 정식 검증·문서화 완료.)
-> **알려진 제약**: coupon `discountValue` 음수 검증 누락(SEC-001 Medium). 정산 중복집계 미차단(SEC-FIND-005-01 Medium). file 메타 소유권 미검증·presign 입력 무검증(SEC-FIND-006-01/02 Low). 알림 이벤트 미연동(GAP-006-01). 상세 §6.
+> 단위/통합 테스트: unit 239 PASS(25 suites) + e2e/static 84 PASS(16 suites). (005~007 경량 구현 후 정식 검증·문서화 + 008·009 후속 보강 완료.)
+> **후속 보강 완료**: 008 정산 멱등성(SEC-FIND-005-01 해결), 009 알림 이벤트 연동(GAP-006-01 해결).
+> **잔여 알려진 제약**: coupon `discountValue` 음수 검증 누락(SEC-001 Medium). file 메타 소유권 미검증·presign 입력 무검증(SEC-FIND-006-01/02 Low). admin audit log 부재(GAP-007-01). 마이그레이션 드리프트(GAP-005-03, accepted). 상세 §6.
 
 ---
 
@@ -223,10 +224,10 @@ postgres (단일 인스턴스, Fly Postgres)
 
 | 항목 | 내용 | 영향 범위 | 관련 spec |
 |---|---|---|---|
-| 정산 중복집계 미차단 (SEC-FIND-005-01, Medium) | `getCompletedItemsForSettlement` 가 기집계 항목 미제외 + `SettlementItem.orderItemId` UNIQUE 부재 → 동일/겹치는 기간 재정산 시 이중 지급액. admin-only 트리거 | `settlement`·`order` | 005-shipping-settlement |
-| 알림 이벤트 미연동 (GAP-006-01) | `NotificationService.create()` export 됐으나 주문·배송·정산·리뷰 이벤트 핸들러에서 호출 미구현 → 알림이 실제 생성되는 경로 부재 | `notification` 외 도메인 | 006 후속 |
+| ~~정산 중복집계 미차단 (SEC-FIND-005-01)~~ | **RESOLVED (008-settlement-idempotency)** — `SettlementItem.orderItemId @unique`(DB 차단) + `findSettledOrderItemIds` 로 기집계 항목 제외 후 재계산 + 멱등성 테스트 2건 | `settlement` | 008 |
+| ~~알림 이벤트 미연동 (GAP-006-01)~~ | **RESOLVED (009-notification-events)** — `NotificationEventsHandler` 가 order.created·shipping.shipped·settlement.created·review.created 구독→수신자 해석(read-only DI)→알림 생성. 실패 격리(safeNotify) | `notification` | 009 |
 | file 메타 소유권·입력 검증 부재 (SEC-FIND-006-01/02, Low) | `GET /files/:id` 소유권 미검증(공개 URL 모델과 정합), presign contentType allowlist·크기상한 미적용, PENDING→UPLOADED confirm 부재(고아 누적, GAP-006-02) | `file` | 006 후속 |
-| 마이그레이션 드리프트 (GAP-005-03) | 005 마이그레이션 SQL 에 004(coupons·reviews) 테이블 생성 동반 캡처(004 모델이 schema 엔 있었으나 별도 마이그레이션 부재했던 기존 드리프트). DB 정상 동기화 | `prisma/migrations` | 005 |
+| 마이그레이션 드리프트 (GAP-005-03, **수용/accepted**) | 005 마이그레이션 SQL 에 004(coupons·reviews) 테이블 생성 동반 캡처(004 모델이 schema 엔 있었으나 별도 마이그레이션 부재). **결정(2026-06-29)**: 그대로 둠 — `migrate deploy` 는 순서대로 전부 생성하여 정상 동작하고 `migrate status` up-to-date. 적용된 폴더 분할/개명은 `_prisma_migrations` 기록과 어긋나 환경을 깨뜨릴 위험이 라벨 불일치(cosmetic)보다 큼. 운영 배포 직전 필요 시에만 전체 squash 리셋 재검토 | `prisma/migrations` | 005 |
 | admin audit log·운영 라우트 (GAP-007-01, OBS-007-01) | 관리자 액션 추적 audit_logs 테이블 미도입. 판매자 승인이 `PATCH /sellers/:id/approve`·`POST /admin/sellers/:id/approve` 두 라우트로 노출(로직은 단일 재사용) | `admin`·`seller` | 007 후속 |
 | ~~inventory 재고입고 소유권 미검증 (SEC-002)~~ | **RESOLVED (003-commerce)** — `assertSellerOwnsVariant`(variantId→product→seller 소유권 검증)를 inventory stock-in·getStock 에 적용 | `inventory`·`product` | 003-commerce FR-050/051 |
 | cross-schema plain String 참조 (P-001·ADR-001) | users·products 스키마 간 FK 없음. Wishlist/ProductView.productId·Product.sellerId·InventoryLog.variantId 등 plain String 참조 → DB 수준 참조 무결성 없음(의도적), 삭제 시 고아 레코드 가능 | users·products 스키마 | 002-catalog |
