@@ -25,7 +25,7 @@
 - **내용**: admin 도메인이 승인(`approveSeller`)·배너 삭제(`banner.remove`) 등 관리자 조치를 수행하지만, 누가 언제 어떤 조치를 했는지 기록하는 append-only 감사 로그 테이블이 없다. `AdminRepository` 는 자체 테이블이 없는 빈 클래스이며(ADR-004), 관리자 조치가 도메인 Service 호출로만 수행되어 audit trail 이 남지 않는다.
 - **수정 방향**: `admin` 스키마에 `admin_audit_logs`(append-only — actorId·action·targetType·targetId·createdAt) 도입 + 관리자 조치 시 감사 기록 + 기록 테스트 추가.
 - **영향**: 낮음 — 보안 사고가 아니라 운영 추적성(거버넌스) 공백. 다수 관리자 운영 시 책임 추적 필요.
-- **상태**: OPEN — 후속 spec 위임.
+- **상태**: **RESOLVED (013-admin-audit-log, 커밋 `b8b45aa`) — 범위: 판매자 승인 감사 1종**. `admin` 스키마에 append-only `admin_audit_logs`(adminId·action·targetType·targetId·createdAt) 테이블 추가 + `AdminRepository` 빈 클래스 → 실 repository(createAuditLog·listAuditLogs) + 판매자 승인(`approveSeller(adminUserId, sellerId)`) 시 감사 기록 + `GET /admin/audit-logs`(AdminGuard) 조회. **단, 현재 감사 대상은 판매자 승인(`SELLER_APPROVE`) 1종이며 banner CRUD·기타 관리자 mutation 의 감사 기록은 미적용**(013 GAP-013-01 로 후속 확장 위임 — 각 도메인 `AdminService.recordAudit` 호출 또는 이벤트 구독). 상세: docs/specs/v1.0.0/013-admin-audit-log/.
 
 ## GAP-007-02
 

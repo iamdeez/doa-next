@@ -26,7 +26,7 @@
 |---|---|---|---|---|---|
 | `BannerService.listAll` 직접 단위 테스트 | listAll 위임·정렬 직접 단언 | (1) 단위테스트 가능 | banner.service.spec 에 listAll 위임 단언 추가 | 개발 | FR-004 thin delegation. e2e 라우트 등록(SC-010)으로 간접 확인 |
 | `OrderRepository.getSellerCompletedSummary` Decimal 산술 | unitPrice.mul(quantity) 누적 직접 검증 | (1) 단위테스트 가능 | order.repository 집계 직접 테스트 추가 | 개발 | stats.service.spec mock 반환 단언 + order 기존 테스트로 간접 커버 |
-| 관리자 액션 audit log | 승인·삭제 등 관리자 조치 추적 | (3) 기능 미구현 | 후속 spec: admin_audit_logs(append-only) + 기록 테스트 | 후속 spec | Low, 운영 추적 공백 (GAP-007-01) |
+| 관리자 액션 audit log | 승인·삭제 등 관리자 조치 추적 | (3) 기능 미구현 | 후속 spec: admin_audit_logs(append-only) + 기록 테스트 | 후속 spec | **013 에서 부분 해결(승인 감사)** — 판매자 승인(SELLER_APPROVE) 감사 도입(GAP-007-01 RESOLVED, 1종 한정). banner CRUD·기타 mutation 감사는 013 GAP-013-01 후속. (원 Low, GAP-007-01) |
 | 배너 노출기간 DB where 절 푸시다운 | startsAt/endsAt DB 필터·쿼리 검증 | (3) 기능 미구현 | 배너 수 증가 시 DB 필터 + 쿼리 테스트 | 후속 spec | Low (GAP-007-02) |
 | 판매자 승인 라우트 일원화 | seller·admin 병렬 approve 단일화 | (2) 설계 관찰 | 운영 라우트 admin 일원화 정책 spec | 후속 spec | Low (OBS-007-01) |
 
@@ -53,7 +53,14 @@
 1. `admin` 스키마에 `admin_audit_logs`(append-only — actorId·action·targetType·targetId·createdAt) 도입.
 2. 관리자 조치(승인·삭제 등)에서 감사 기록 + 기록 테스트 추가.
 
-> 본 항목은 gaps.md GAP-007-01 과 동일 사안이다.
+> **013 에서 부분 해결(승인 감사)**: 013-admin-audit-log(커밋 `b8b45aa`)가 `admin` 스키마에 append-only
+> `admin_audit_logs`(adminId·action·targetType·targetId·createdAt) 테이블을 도입하고, `AdminRepository`
+> 빈 클래스를 실 repository(createAuditLog·listAuditLogs)로 채우며, 판매자 승인(`approveSeller(adminUserId,
+> sellerId)`) 시 감사를 기록하고 `GET /admin/audit-logs`(AdminGuard)로 조회한다(`admin.service.spec` 감사
+> append·클램프 단위 테스트 +2). **단 감사 대상은 판매자 승인(`SELLER_APPROVE`) 1종이며**, banner CRUD·
+> 기타 관리자 mutation 의 감사 기록은 013 GAP-013-01 로 후속 확장에 위임된다(기록 실패 격리 부재는
+> GAP-013-02, 조회 HTTP e2e 부재는 GAP-013-03). 본 항목은 gaps.md GAP-007-01(RESOLVED 013)·013-admin-
+> audit-log 문서와 동일 사안이다.
 
 ---
 

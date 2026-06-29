@@ -1,3 +1,30 @@
+## [013-admin-audit-log] 구현 완료
+
+> base `1af0fa6`(012 정식 SDD 문서 커밋 — 코드는 012 완료 `35791d6` 와 동일) → `b8b45aa`(013 완료). 변경 라인은 `git diff 1af0fa6 b8b45aa -- apps/backend`로 재생성. 마이그레이션 013(`admin_audit_logs` 테이블·인덱스 2종 추가 — 비파괴 `CREATE TABLE`, migrate dev 적용, 전체 테이블 29→30).
+
+**변경 파일**:
+- `apps/backend/prisma/schema.prisma`: `admin` 스키마에 append-only `AdminAuditLog`(id·adminId·action·targetType·targetId·createdAt) 모델 추가. 인덱스 `(createdAt desc)`·`(adminId, createdAt desc)`. adminId/targetId 는 cross-schema plain String(P-001, FK 미선언).
+- `apps/backend/prisma/migrations/20260629121613_013_admin_audit_log/migration.sql`(신규): `CREATE TABLE "admin"."admin_audit_logs"` + 인덱스 2종. 비파괴 신규 테이블.
+- `apps/backend/src/modules/admin/admin.repository.ts`: 빈 클래스 → `createAuditLog({ adminId, action, targetType, targetId })`(append-only INSERT) + `listAuditLogs(take)`(최신순). admin 스키마 자기 소유 테이블(`admin_audit_logs`)만 접근(P-001 — UPDATE/DELETE 미제공).
+- `apps/backend/src/modules/admin/admin.constants.ts`: `DEFAULT_AUDIT_LOG_LIMIT(50)`·`MAX_AUDIT_LOG_LIMIT(200)`·`AUDIT_ACTION = { SELLER_APPROVE }`·`AUDIT_TARGET = { SELLER }`(String 확장성) 추가.
+- `apps/backend/src/modules/admin/admin.service.ts`: `approveSeller(sellerId)` → `approveSeller(adminUserId, sellerId)`(시그니처 변경) — `sellerService.approve` 성공 후 `createAuditLog({ adminId: adminUserId, SELLER_APPROVE, SELLER, sellerId })` append. `listAuditLogs(limit)` 신규(`min(max(limit ?? 50, 1), 200)` 클램프).
+- `apps/backend/src/modules/admin/admin.controller.ts`: `POST /admin/sellers/:id/approve` 가 `@CurrentUser().userId` → `approveSeller` 전달 + `GET /admin/audit-logs?limit=` 라우트 신규(컨트롤러 레벨 JwtAuthGuard+AdminGuard 포섭).
+- `apps/backend/src/modules/admin/admin.service.spec.ts`: `approveSeller` 단언을 감사 append 포함으로 갱신(it 명 `..._and_records_audit`) + `listAuditLogs` describe 2 it()(default 50·max 200 클램프) 신규 + `AdminRepository` mock provider 추가.
+- `apps/backend/test/static/cross-schema.spec.ts`: AdminRepository 규칙 주석·label(`007`→`007/013`) 갱신 — admin 스키마 자기 소유 테이블 접근 명시(신규 it() 0).
+
+**검증**: tsc 0 / unit 25 suites·255 PASS(012 대비 +2 = listAuditLogs default·max 클램프, 회귀 0) / e2e+static 16 suites·84 PASS(변화 없음 — cross-schema 규칙 주석·label 갱신, 신규 it() 0). 마이그레이션 013(`admin_audit_logs` 테이블·인덱스 2 추가, 비파괴, `migrate status` up-to-date, 전체 테이블 30). `approveSeller` 시그니처 변경 잔여 참조 0(controller 1건 갱신 — grep).
+
+**해결**: **GAP-007-01(관리자 액션 audit log 부재, Low) 부분 해결** — `admin_audit_logs`(append-only) 테이블 추가 + `AdminRepository` 빈 클래스 → 실 repository + 판매자 승인 시 감사 기록(`approveSeller` 시그니처에 승인 관리자 userId 추가) + `GET /admin/audit-logs`(AdminGuard) 조회. admin 모듈이 처음으로 자기 소유 테이블을 보유한다. **감사 대상은 판매자 승인(`SELLER_APPROVE`) 1종 한정** — banner CRUD·기타 관리자 mutation 의 감사는 범위 외(GAP-013-01 후속 확장). 007-banner-stats-admin/gaps.md 의 GAP-007-01 을 RESOLVED(013, 판매자 승인 감사 1종)로, test/coverage-gap.md 해당 항목에 "013 부분 해결(승인 감사)" 주석을 갱신.
+
+**후속 작업 시 주의사항**:
+- **감사 대상 1종 한정(GAP-013-01, Low)**: 감사 기록은 판매자 승인(`SELLER_APPROVE`) 1경로뿐이다. banner CRUD·기타 관리자 mutation 은 미감사다. `action`·`targetType` 을 String 으로 둔 것은 확장을 마이그레이션 없이 수용하기 위함 — 후속에 각 도메인에서 `AdminService.recordAudit` 호출 또는 도메인 이벤트(009 NotificationEventsHandler 동형) 구독으로 감사 대상을 확장하고 상수(`AUDIT_ACTION`·`AUDIT_TARGET`)에 값을 추가한다(범위 외).
+- **감사 기록 실패 격리/원자성 부재(GAP-013-02, Low)**: `approveSeller` 는 `sellerService.approve` → `createAuditLog` 를 순차 await 하며 try/catch·`$transaction` 미적용이다. 승인 성공 후 append 라 기록 실패가 승인을 롤백하진 않으나, 예외가 호출 측(controller→500)으로 전파된다(원자성 아님 — 의도적 단순화). 후속에 try/catch 흡수(009 safeNotify 동형) 또는 단일 트랜잭션 원자화 검토 + 실패 시나리오 테스트(범위 외).
+- **`approveSeller` breaking 시그니처**: `approveSeller(sellerId)` → `approveSeller(adminUserId, sellerId)`. 향후 판매자 승인을 호출하는 신규 코드를 추가하면 반드시 승인 수행 관리자 userId 를 첫 인자로 전달해야 감사 기록의 `adminId` 정합이 유지된다(현재 호출 측은 AdminController 단일). `SellerService.approve(sellerId)` 외부 계약은 불변(admin 이 재사용).
+- **adminId 서버 확정 보존**: `adminId` 는 클라이언트 입력이 아닌 `@CurrentUser().userId`(JWT 확정 승인 관리자)다. 감사 책임 추적 신뢰성을 위해 이 출처를 클라이언트 입력으로 바꾸면 안 된다(NFR-003·ADR-005). 감사 로그는 append-only(`AdminRepository` create·findMany 만 — UPDATE/DELETE 미제공).
+- **감사 조회 HTTP e2e 부재(GAP-013-03, Low)**: `GET /admin/audit-logs`(관리자 200·비인증 401·비관리자 403)의 end-to-end 통합 테스트는 없다. 가드는 정적(SC-003)·기록/클램프는 단위(SC-001·002)로 검증(컨트롤러 레벨 가드 포섭이라 라우트별 누락 표면 없음). 후속 e2e 보강 권장(coverage-gap.md).
+
+---
+
 ## [012-settlement-completed-at] 구현 완료
 
 > base `3735377`(011 정식 SDD 문서 커밋 — 코드는 011 완료 `88de003` 와 동일) → `35791d6`(012 완료). 변경 라인은 `git diff 3735377 35791d6 -- apps/backend`로 재생성. 마이그레이션 012(`Order.completedAt` nullable 컬럼 추가 — 비파괴 `ADD COLUMN`, migrate dev 적용).

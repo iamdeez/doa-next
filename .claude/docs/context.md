@@ -18,10 +18,10 @@
 - **주요 기술 스택**: Node.js + TypeScript, NestJS, Prisma, PostgreSQL 16, Turborepo
 
 > 001~007 완료. `apps/backend`(NestJS **18모듈 전부 실구현** — auth·user·seller·product·inventory·cart·order·payment·coupon·review·shipping·settlement·search·notification·file·banner·stats·admin),
-> Prisma **29테이블**·JWT·AdminGuard·ALS 트랜잭션·pg-boss·쿠폰(서버할인·이중사용방지)·리뷰(orderItem)·배송(송장·추적·상태전이)·정산(Decimal 집계)·검색·알림·파일(R2 Port+stub)·배너·통계·운영·Docker·CI 실재.
-> 단위/통합 테스트: unit 253 PASS(25 suites) + e2e/static 84 PASS(16 suites). (005~007 경량 구현 후 정식 검증·문서화 + 008~011 후속 보강 완료.)
-> **후속 보강 완료**: 008 정산 멱등성(SEC-FIND-005-01), 009 알림 이벤트 연동(GAP-006-01), 010 쿠폰 할인값 검증(SEC-001), 011 파일 보안(SEC-FIND-006-01/02·GAP-006-02), 012 정산 completedAt 기준(GAP-005-02) 전부 해결.
-> **잔여 알려진 제약**: admin audit log 부재(GAP-007-01 Low). 마이그레이션 드리프트(GAP-005-03, accepted). 상세 §6.
+> Prisma **30테이블**·JWT·AdminGuard·ALS 트랜잭션·pg-boss·쿠폰(서버할인·이중사용방지)·리뷰(orderItem)·배송(송장·추적·상태전이)·정산(Decimal 집계·멱등)·검색·알림(이벤트 연동)·파일(R2 Port+stub)·배너·통계·운영(감사 로그)·Docker·CI 실재.
+> 단위/통합 테스트: unit 255 PASS(25 suites) + e2e/static 84 PASS(16 suites). (005~007 경량 구현 후 정식 검증·문서화 + 008~013 후속 보강 완료.)
+> **후속 보강 완료**: 008 정산 멱등성(SEC-FIND-005-01), 009 알림 이벤트 연동(GAP-006-01), 010 쿠폰 할인값 검증(SEC-001), 011 파일 보안(SEC-FIND-006-01/02·GAP-006-02), 012 정산 completedAt(GAP-005-02), 013 관리자 감사 로그(GAP-007-01) 전부 해결. **추적 백로그 전부 소진**(잔여 SEC/GAP 0, GAP-005-03만 accepted).
+> **잔여 알려진 제약**: 마이그레이션 드리프트(GAP-005-03, accepted) — §6. 그 외 신규 발견 시 각 spec gaps.md·§6 에 추적.
 
 ---
 
@@ -89,7 +89,7 @@ Events (발행/구독 — NestJS EventEmitter)
 | `file` | `files` | 파일 메타데이터·presign (file_assets). R2는 `FileStoragePort` + `StubFileStorage`(무네트워크) |
 | `banner` | `admin` | 배너 노출 (banners 테이블) — 관리자 CRUD + 공개 노출(활성·기간 필터) |
 | `stats` | (자체 테이블 없음) | 집계·통계 — order/user/seller Service 공개 메서드 DI 조합 (매출 Decimal) |
-| `admin` | (자체 테이블 없음) | 운영 — 판매자 승인 대기/승인(기존 SellerService.approve 재사용)·사용자 목록 |
+| `admin` | `admin` (audit) | 운영 — 판매자 승인 대기/승인(SellerService.approve 재사용)·사용자 목록 + 조치 감사 로그(admin_audit_logs, append-only) |
 
 > **구현 상태**: **18개 모듈 전부 실구현**(001~007). search·stats·admin 은 자체 트랜잭션 테이블 없이 타 도메인 Service 공개 메서드를 DI 경유로 조합하는 read-only/오케스트레이션 모듈이다(P-001 — repository 빈 클래스 또는 자기 스키마 집계만).
 >
@@ -184,13 +184,13 @@ postgres (단일 인스턴스, Fly Postgres)
 ├── schema: orders     (orders, order_items, order_events, shipments, shipment_tracking)
 ├── schema: payments   (payments, refunds, payment_outbox)
 ├── schema: settlements(settlements, settlement_items)
-├── schema: admin      (banners)
+├── schema: admin      (banners, admin_audit_logs)
 └── schema: files      (file_assets)
 ```
 
-> **실재 상태**: **29개 테이블 실체화**(Prisma migrate 적용, 마이그레이션 6차) — `users` 7(+ notifications) · `products` 6 · `commerce` 4(carts·coupons·user_coupons·reviews) · `orders` 5(+ shipments·shipment_tracking) · `payments` 3(payments·refunds·payment_outbox) · `settlements` 2(settlements·settlement_items) · `admin` 1(banners) · `files` 1(file_assets).
+> **실재 상태**: **30개 테이블 실체화**(Prisma migrate 적용, 마이그레이션 13차) — `users` 7(+ notifications) · `products` 6 · `commerce` 4(carts·coupons·user_coupons·reviews) · `orders` 5(+ shipments·shipment_tracking) · `payments` 3(payments·refunds·payment_outbox) · `settlements` 2(settlements·settlement_items) · `admin` 2(banners·admin_audit_logs) · `files` 1(file_assets).
 > Variant 가 옵션을 인라인 필드로 흡수(별도 options 테이블 없음). `order_events`·`inventory_logs`·`shipment_tracking` 은 append-only. 금전 필드(totalAmount·unitPrice·amount·totalSales·commission·payoutAmount·saleAmount 등)는 전부 Decimal(12,2)(P-005). cross-schema/cross-module 참조는 plain String(FK 미선언, P-001) — notifications.userId·file_assets.ownerId·banners 무참조·settlements.sellerId·settlement_items.orderItemId·shipments.orderId 등.
-> notifications 는 `admin` 이 아닌 `users` 스키마에 위치한다(사용자 알림). admin 스키마는 banners 1개뿐(공지·시스템설정·audit_logs 는 미도입 — GAP-007-01).
+> notifications 는 `admin` 이 아닌 `users` 스키마에 위치한다(사용자 알림). admin 스키마는 banners·admin_audit_logs 2개(공지·시스템설정 테이블은 미도입 — 필요 시 후속).
 > Refresh Token 은 원문이 아닌 SHA-256 해시(`tokenHash`)로 저장된다(ADR-003).
 
 **주요 설계 결정 (비도출 지식)**:
@@ -228,7 +228,7 @@ postgres (단일 인스턴스, Fly Postgres)
 | ~~알림 이벤트 미연동 (GAP-006-01)~~ | **RESOLVED (009-notification-events)** — `NotificationEventsHandler` 가 order.created·shipping.shipped·settlement.created·review.created 구독→수신자 해석(read-only DI)→알림 생성. 실패 격리(safeNotify) | `notification` | 009 |
 | ~~file 메타 소유권·입력 검증 부재 (SEC-FIND-006-01/02·GAP-006-02)~~ | **RESOLVED (011-file-security)** — `GET /files/:id` 소유자 전용(403), presign contentType allowlist(이미지 4종, 그 외 400), `POST /files/:id/confirm` PENDING→UPLOADED+size(멱등, size≤10MiB). 잔여(범위 외): confirm size 는 클라이언트 신뢰값 — 실 R2 HEAD 교차검증은 후속 | `file` | 011 |
 | 마이그레이션 드리프트 (GAP-005-03, **수용/accepted**) | 005 마이그레이션 SQL 에 004(coupons·reviews) 테이블 생성 동반 캡처(004 모델이 schema 엔 있었으나 별도 마이그레이션 부재). **결정(2026-06-29)**: 그대로 둠 — `migrate deploy` 는 순서대로 전부 생성하여 정상 동작하고 `migrate status` up-to-date. 적용된 폴더 분할/개명은 `_prisma_migrations` 기록과 어긋나 환경을 깨뜨릴 위험이 라벨 불일치(cosmetic)보다 큼. 운영 배포 직전 필요 시에만 전체 squash 리셋 재검토 | `prisma/migrations` | 005 |
-| admin audit log·운영 라우트 (GAP-007-01, OBS-007-01) | 관리자 액션 추적 audit_logs 테이블 미도입. 판매자 승인이 `PATCH /sellers/:id/approve`·`POST /admin/sellers/:id/approve` 두 라우트로 노출(로직은 단일 재사용) | `admin`·`seller` | 007 후속 |
+| ~~admin audit log 부재 (GAP-007-01)~~ | **RESOLVED (013-admin-audit-log)** — admin_audit_logs(append-only) + 판매자 승인 시 SELLER_APPROVE 기록 + `GET /admin/audit-logs`. 잔여(범위 외): 감사 대상이 승인 1종 — banner CRUD 등 추가 mutation 감사·기록 실패 격리는 후속. OBS-007-01(승인 라우트 이중 표면)은 유지(운영 라우트 일원화 후속 검토) | `admin` | 013 |
 | ~~inventory 재고입고 소유권 미검증 (SEC-002)~~ | **RESOLVED (003-commerce)** — `assertSellerOwnsVariant`(variantId→product→seller 소유권 검증)를 inventory stock-in·getStock 에 적용 | `inventory`·`product` | 003-commerce FR-050/051 |
 | cross-schema plain String 참조 (P-001·ADR-001) | users·products 스키마 간 FK 없음. Wishlist/ProductView.productId·Product.sellerId·InventoryLog.variantId 등 plain String 참조 → DB 수준 참조 무결성 없음(의도적), 삭제 시 고아 레코드 가능 | users·products 스키마 | 002-catalog |
 | pino-pretty 미설치 | 로컬 `NODE_ENV=development` 에서 pino-pretty transport 모듈 오류. e2e 는 `NODE_ENV=production`(JSON 로그) 우회 중. 해소: `pnpm add -D pino-pretty --filter backend` | `apps/backend` 로컬 dev 로그 | 001-skeleton-bootstrap |
@@ -243,5 +243,6 @@ postgres (단일 인스턴스, Fly Postgres)
 
 | 날짜 | 갱신 내용 | 관련 spec |
 |---|---|---|
+| 2026-06-29 | 008~013 후속 보강 — 추적 백로그 전부 소진. 정산 멱등성·알림 이벤트 연동·쿠폰 할인값 검증·파일 보안·정산 completedAt·관리자 감사 로그. 30테이블, unit 255. §6 제약 대부분 RESOLVED(GAP-005-03만 accepted) | 008~013 |
 | 2026-06-29 | 005·006·007 반영 — 18개 도메인 전부 실구현(배송·정산·검색·알림·파일·배너·통계·운영), 29테이블. notifications 위치 정정(admin→users), file R2 Port+stub 정정, §6 신규 제약(SEC-FIND-005-01·006-01/02, GAP-005-03·006-01/02·007-01, OBS-007-01) 추가 | 005-shipping-settlement, 006-search-notification-file, 007-banner-stats-admin |
 | (이전) | 001~004 골격·카탈로그·거래·리뷰쿠폰 | 001~004 |
