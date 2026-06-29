@@ -1,3 +1,77 @@
+## [003-api-client-typed] 구현 완료
+
+> v1.1.0 프론트엔드 사이클의 세 번째 차수(002 디자인 시스템 다음). base `29eb81f`(002 SDD 문서 커밋) →
+> `1671814`(003 완료). 변경 라인은 `git diff 29eb81f 1671814 -- packages/api-client` 로 재생성(4 files,
+> +146/-84 — `pnpm-lock.yaml` 부수 변경 제외). **마이그레이션 없음**(DB 스키마 변경 0 — 프론트 HTTP
+> 클라이언트 패키지). FRONTEND-PLAN Phase 0(타입 공유) 완성 — 001(생성 타입 SSOT)의 소비자 차수.
+
+**변경 파일**:
+- `packages/api-client/src/auth-fetch.ts`(신규): `createAuthFetch(opts): typeof fetch` 팩토리. 토큰 주입
+  (Authorization Bearer)·401 자동 refresh(원요청 `isRetry` 1회 재시도)·`refreshing` in-flight 가드(동시
+  401 시 단일 refresh Promise 공유 — 전역 1회)·`doaAnonymous` 익명 분기(login/register/refresh 토큰·refresh
+  생략)·`buildUrl`(절대 URL `^https?://` 통과 / 상대경로 baseUrl 절대화 — 이중 prefix 회피)·`doRefresh`
+  (refresh 요청은 가드 밖 직접 fetch — 무한 재귀 회피). `TokenStore`·`AuthFetchOptions`·`AuthRequestInit`
+  인터페이스 정의.
+- `packages/api-client/src/http.ts`: `HttpClient` 에서 refresh 로직 제거 → 공유 authFetch 위임(중복 제거).
+  본 클래스는 쿼리 직렬화(`withQuery`)·JSON 본문·표준 에러 변환(`ApiError`)·204 처리만 담당. 생성자
+  `constructor(opts, authFetch?)` optional 주입(주입 우선, 없으면 `createAuthFetch(opts)` 자체 생성).
+  `options.anonymous` → `init.doaAnonymous` 매핑. `HttpClientOptions = AuthFetchOptions`(@deprecated alias).
+- `packages/api-client/src/index.ts`: `openapi-fetch` 의 `createOpenApiClient<paths>({ baseUrl, fetch:
+  authFetch })` 로 전 도메인 70경로 타입드 클라이언트(`client`) 추가. `createApiClient` 가
+  `createAuthFetch(options)` 로 authFetch **1개** 생성 → `new HttpClient(options, authFetch)` 와 타입드
+  `client` 에 **공유 주입**(refresh in-flight 전역 1회 일관). 반환에 `client`(신규 화면용
+  `api.client.GET('/seller/orders', { params, ... })`)·`http`(저수준) + 기존 도메인 facade(auth·user·seller·
+  catalog·inventory) 공존. `TypedClient` 타입·`createAuthFetch`·`AuthFetchOptions`·`TokenStore` 재노출.
+- `packages/api-client/package.json`: `openapi-fetch ^0.17.0`(dependency) 추가. 생성 타입 `paths`(001 산출)
+  소비 타입드 HTTP 클라이언트. AWS/Fly.io 전용 SDK 아님(P-002 무저촉).
+
+**검증**: `pnpm --filter console typecheck` 0 error / `pnpm --filter console build` 13 라우트 PASS
+(openapi-fetch 번들·타입드 client 컴파일 확인) / 기존 facade·refresh 동작 회귀 0. 신규 단위 테스트 0(인프라/
+클라이언트 — `git diff 29eb81f 1671814 -- packages/api-client` 에 `*.spec.ts` 변경 0, 검증은 타입체크 + 빌드
++ 정적 구조 리뷰로 갈음). 변경 라인 직접 카운트(auth-fetch.ts +98/-0·http.ts +29/-82·index.ts +17/-1·
+package.json +2/-1 = 4 files +146/-84). 마이그레이션 없음(DB 스키마 변경 0). 신규 의존 1종(`openapi-fetch`)은
+AWS/Fly.io 전용 SDK 아님(P-002 무저촉).
+
+**해결**: **001 §범위 외 "`@doa/api-client` 의 생성 타입 전면 전환"(GAP-001-01 (3)) 수행 — FRONTEND-PLAN
+Phase 0(타입 공유) 완성**. 001 이 확립한 생성 타입 SSOT(`openapi.gen.ts` paths 70경로)를 `openapi-fetch`
+`createClient<paths>` 로 직접 소비하는 전 도메인 70경로 타입드 클라이언트(경로·params·query·body·response
+전부 타입)를 제공. 동시에 401 refresh 로직을 `createAuthFetch`(공유 fetch 래퍼)로 추출하여 legacy facade 와
+타입드 client 가 **동일 authFetch 인스턴스를 공유**(refresh 전역 in-flight 1회 일관)하게 하고, 기존 facade·
+console 호출을 비파괴로 유지(회귀 0). console 화면 마이그레이션·수기 타입 폐기·응답 스키마 보강은 GAP-003-01
+(Low) / Phase 1+ 후속.
+
+**후속 작업 시 주의사항**:
+- **refresh 공유의 전제(핵심)**: refresh 전역 1회 일관은 `createApiClient` 가 `createAuthFetch(options)` 로
+  authFetch 인스턴스를 **1개만** 생성하여 `HttpClient`(facade)와 openapi-fetch `client` 에 공유 주입하는
+  것에 의존한다(`refreshing` in-flight 가드는 클로저 단위). 향후 `createApiClient` 내부에서 authFetch 를
+  복수 생성하거나 `client` 에 별도 fetch 를 주입하면 이 보장이 깨져 동시 401 시 refresh 가 중복 실행된다.
+- **이중 prefix 회피(buildUrl)**: openapi-fetch 는 `baseUrl + path`(절대 URL)로 주입 fetch 를 호출하므로,
+  `createAuthFetch.buildUrl` 이 절대 URL(`^https?://`)을 그대로 통과시켜야 한다(baseUrl 재prefix 시 이중
+  prefix). HttpClient(facade)는 상대경로(`/products/...`)를 넘겨 baseUrl 로 절대화된다. 향후 URL 처리를
+  변경할 때 이 절대/상대 분기를 유지해야 한다.
+- **익명 요청 분리(doaAnonymous)**: login/register/refresh 는 `doaAnonymous` 플래그로 Authorization 미주입·
+  401 refresh 재시도 생략한다. refresh 요청(`/auth/refresh`)은 `doRefresh` 내부에서 authFetch 가드를 거치지
+  않고 직접 fetch 한다(refresh 무한 재귀 회피). facade 의 `{ anonymous: true }` 옵션이 `doaAnonymous` 로
+  매핑되므로, 신규 익명 엔드포인트 추가 시 `anonymous`/`doaAnonymous` 를 설정해야 한다.
+- **console 마이그레이션 점진(GAP-003-01, Low)**: 003 은 타입드 client 를 **추가** 하고 도메인 facade·
+  console 호출을 불변(비파괴) 유지한다. console 페이지의 기존 facade 호출(`api.auth.login` 등)을
+  `api.client.GET/POST(...)` 로 전환하고 수기 shared-types 타입을 폐기하는 작업은 Phase 1+ 후속이다. 신규
+  화면은 facade 추가 없이 `api.client` 를 직접 사용한다(전 도메인 70경로).
+- **응답 스키마 품질 백엔드 의존(GAP-003-01, Low)**: 타입드 client 의 response 타입은 백엔드 OpenAPI 응답
+  정의에서 도출된다. 001 에서 87 operations 중 typed 2xx response content 는 36건이며 나머지는 응답 본문이
+  타입 미주석이다(`@ApiResponse({ type })` 미부여 — 001 GAP-001-01). 따라서 일부 엔드포인트는
+  `api.client.GET(...)` 의 response 타입이 비어 있을 수 있다. 백엔드에 응답 DTO + `@ApiResponse({ type })`
+  를 보강하고 코드젠을 재생성하면 client response 타입이 자동 완성된다.
+- **authFetch 단위 테스트 부재(GAP-003-01, Low)**: refresh in-flight 가드·doaAnonymous 분기·buildUrl 보정·
+  `isRetry` 1회 재시도는 단위 테스트 없이 빌드/타입체크·정적 리뷰로 갈음했다(인프라 성격). refresh 동시성
+  같은 경합은 단위 테스트 없이 회귀 탐지가 어려우므로, 후속에 동시 401 → refresh 1회·doaAnonymous 분기·
+  buildUrl 케이스·재시도 1회 단위 테스트 추가를 권고한다.
+- **HttpClientOptions deprecated alias**: `http.ts` 의 `HttpClientOptions` 는 `AuthFetchOptions` 의
+  `@deprecated` alias(동일 타입)다. 기존 `createApiClient(options: HttpClientOptions)` 호출 호환을 위해
+  유지하며, 향후 `AuthFetchOptions` 로 통일을 권고한다.
+- **신규 의존 1종**: `openapi-fetch ^0.17.0`(api-client dependency). AWS/Fly.io 전용 SDK 가 아닌 생성 타입
+  소비 타입드 HTTP 클라이언트로 P-002 무저촉. `pnpm-lock.yaml` 에 `openapi-fetch@0.17.0` 반영(부수 변경).
+
 ## [002-design-system-foundation] 구현 완료
 
 > v1.1.0 프론트엔드 사이클의 두 번째 차수(001 OpenAPI 코드젠 다음). base `3a6dbc9`(001 SDD 문서 커밋) →
