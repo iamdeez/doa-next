@@ -37,7 +37,7 @@ export default function NewProductPage() {
   });
 
   if (!isSeller) {
-    return <p className="text-sm text-zinc-500">판매자 등록 후 상품을 등록할 수 있습니다.</p>;
+    return <p className="text-sm text-muted-foreground">판매자 등록 후 상품을 등록할 수 있습니다.</p>;
   }
 
   function onSubmit(e: FormEvent) {
@@ -62,7 +62,7 @@ export default function NewProductPage() {
       />
 
       {sellerStatus !== 'APPROVED' && (
-        <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        <p className="rounded-lg bg-warning-soft px-4 py-3 text-sm text-warning-foreground">
           현재 승인 상태가 {sellerStatus} 입니다. 상품 생성은 APPROVED 판매자만 가능합니다.
         </p>
       )}

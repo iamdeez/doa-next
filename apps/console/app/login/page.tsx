@@ -40,11 +40,11 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center px-4">
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-sm space-y-4 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm"
+        className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-surface p-8 shadow-sm"
       >
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900">DOA Console</h1>
-          <p className="mt-1 text-sm text-zinc-500">판매자·관리자 로그인</p>
+          <h1 className="text-xl font-semibold text-foreground">DOA Console</h1>
+          <p className="mt-1 text-sm text-muted-foreground">판매자·관리자 로그인</p>
         </div>
 
         <Input

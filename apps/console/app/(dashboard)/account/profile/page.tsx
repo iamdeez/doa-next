@@ -44,14 +44,14 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-lg space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">프로필</h1>
+      <h1 className="text-2xl font-semibold text-foreground">프로필</h1>
 
       {profile.isLoading && <Loading />}
 
       {profile.data && (
         <Card>
           <form onSubmit={onSubmit} className="space-y-4">
-            <div className="text-sm text-zinc-500">{profile.data.email}</div>
+            <div className="text-sm text-muted-foreground">{profile.data.email}</div>
 
             <Input label="이름" value={name} onChange={(e) => setName(e.target.value)} />
             <Input
@@ -62,7 +62,7 @@ export default function ProfilePage() {
             />
 
             {error && <ErrorText>{error}</ErrorText>}
-            {saved && <p className="text-sm text-green-600">저장되었습니다.</p>}
+            {saved && <p className="text-sm text-success-foreground">저장되었습니다.</p>}
 
             <Button type="submit" disabled={save.isPending}>
               {save.isPending ? '저장 중…' : '저장'}

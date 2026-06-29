@@ -64,11 +64,11 @@ export default function AddressesPage() {
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-zinc-900">{a.recipientName}</span>
+                  <span className="font-medium text-foreground">{a.recipientName}</span>
                   {a.isDefault && <Badge tone="dark">기본</Badge>}
                 </div>
-                <div className="mt-1 text-sm text-zinc-500">{a.phone}</div>
-                <div className="mt-1 text-sm text-zinc-600">
+                <div className="mt-1 text-sm text-muted-foreground">{a.phone}</div>
+                <div className="mt-1 text-sm text-muted-foreground">
                   ({a.zipCode}) {a.address1} {a.address2 ?? ''}
                 </div>
               </div>
@@ -76,17 +76,17 @@ export default function AddressesPage() {
                 {!a.isDefault && (
                   <button
                     onClick={() => setDefault.mutate(a.id)}
-                    className="text-zinc-500 hover:text-zinc-900"
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     기본 설정
                   </button>
                 )}
-                <button onClick={() => setEditing(a)} className="text-zinc-500 hover:text-zinc-900">
+                <button onClick={() => setEditing(a)} className="text-muted-foreground hover:text-foreground">
                   수정
                 </button>
                 <button
                   onClick={() => remove.mutate(a.id)}
-                  className="text-red-500 hover:text-red-700"
+                  className="text-danger hover:text-danger"
                 >
                   삭제
                 </button>
@@ -160,7 +160,7 @@ function AddressForm({
   return (
     <Card>
       <form onSubmit={submit} className="space-y-4">
-        <div className="text-sm font-medium text-zinc-900">{initial ? '배송지 수정' : '새 배송지'}</div>
+        <div className="text-sm font-medium text-foreground">{initial ? '배송지 수정' : '새 배송지'}</div>
         <div className="grid grid-cols-2 gap-3">
           {FIELDS.map((f) => (
             <Input
@@ -174,7 +174,7 @@ function AddressForm({
         </div>
 
         {!initial && (
-          <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <label className="flex items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
               checked={isDefault}

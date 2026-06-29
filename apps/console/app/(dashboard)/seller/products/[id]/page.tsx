@@ -41,7 +41,7 @@ export default function ProductManagePage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <Link href="/seller/products" className="text-sm text-zinc-500 hover:text-zinc-900">
+      <Link href="/seller/products" className="text-sm text-muted-foreground hover:text-foreground">
         ← 내 상품
       </Link>
 
@@ -89,8 +89,8 @@ function ProductHeader({
   return (
     <Card className="flex items-start justify-between">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">{product.title}</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <h1 className="text-2xl font-semibold text-foreground">{product.title}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           {product.status} · 기본가 {product.price}
         </p>
       </div>
@@ -120,9 +120,9 @@ function DraftPanel({
 }) {
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
-        <h1 className="text-lg font-semibold text-amber-800">DRAFT / INACTIVE 상품</h1>
-        <p className="mt-1 text-sm text-amber-700">
+      <div className="rounded-card border border-warning bg-warning-soft p-6">
+        <h1 className="text-lg font-semibold text-warning-foreground">DRAFT / INACTIVE 상품</h1>
+        <p className="mt-1 text-sm text-warning-foreground">
           이 상태의 상품은 상세 조회 API(`GET /products/:id`)로 조회할 수 없습니다(BE-GAP-003).
           옵션을 추가한 뒤 게시하면 전체 관리 화면이 표시됩니다.
         </p>
@@ -130,7 +130,7 @@ function DraftPanel({
           {publishing ? '게시 중…' : '게시(publish)'}
         </Button>
         {publishError instanceof ApiError && (
-          <p className="mt-2 text-sm text-red-600">{publishError.message}</p>
+          <p className="mt-2 text-sm text-danger">{publishError.message}</p>
         )}
       </div>
 
@@ -152,12 +152,12 @@ function VariantSection({
 }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-zinc-900">옵션 · 재고</h2>
+      <h2 className="text-lg font-semibold text-foreground">옵션 · 재고</h2>
 
       {variants.length === 0 ? (
-        <p className="text-sm text-zinc-400">등록된 옵션이 없습니다.</p>
+        <p className="text-sm text-subtle-foreground">등록된 옵션이 없습니다.</p>
       ) : (
-        <div className="divide-y divide-zinc-100 overflow-hidden rounded-xl border border-zinc-200 bg-white">
+        <div className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">
           {variants.map((v) => (
             <VariantRow key={v.id} variant={v} approved={approved} />
           ))}
@@ -196,15 +196,15 @@ function VariantRow({ variant, approved }: { variant: ProductVariant; approved: 
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-3">
       <div className="min-w-0">
-        <div className="truncate text-sm font-medium text-zinc-900">
+        <div className="truncate text-sm font-medium text-foreground">
           {variant.optionName} · {variant.optionValue}
         </div>
-        <div className="truncate text-xs text-zinc-400">
+        <div className="truncate text-xs text-subtle-foreground">
           {variant.sku} · {variant.price}
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-sm text-zinc-600">
+        <span className="text-sm text-muted-foreground">
           재고 {approved ? (stock.isLoading ? '…' : (stock.data ?? 0)) : '—'}
         </span>
         {approved && (
@@ -215,7 +215,7 @@ function VariantRow({ variant, approved }: { variant: ProductVariant; approved: 
               value={qty}
               onChange={(e) => setQty(e.target.value)}
               placeholder="수량"
-              className="w-20 rounded-lg border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-zinc-900"
+              className="w-20 rounded-lg border border-border px-2 py-1 text-sm outline-none focus:border-ring"
             />
             <Button type="submit" size="sm" disabled={stockIn.isPending}>
               입고
@@ -278,7 +278,7 @@ function AddVariantForm({
   return (
     <Card className="p-5">
       <form onSubmit={submit} className="space-y-3">
-        <div className="text-sm font-medium text-zinc-900">옵션 추가</div>
+        <div className="text-sm font-medium text-foreground">옵션 추가</div>
         <div className="grid grid-cols-2 gap-3">
           <Input label="옵션명" required {...field('optionName')} />
           <Input label="옵션값" required {...field('optionValue')} />
@@ -287,7 +287,7 @@ function AddVariantForm({
           <Input label="초기 재고(선택)" type="number" min={0} {...field('initialStock')} />
         </div>
         {!approved && (
-          <p className="text-xs text-amber-600">※ 옵션 추가는 APPROVED 판매자만 가능합니다.</p>
+          <p className="text-xs text-warning">※ 옵션 추가는 APPROVED 판매자만 가능합니다.</p>
         )}
         {error && <ErrorText>{error}</ErrorText>}
         <Button type="submit" disabled={add.isPending}>

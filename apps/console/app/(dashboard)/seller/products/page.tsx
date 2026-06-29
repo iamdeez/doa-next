@@ -59,9 +59,9 @@ export default function SellerProductsPage() {
       )}
 
       {data && data.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+        <div className="overflow-hidden rounded-card border border-border bg-surface">
           <table className="w-full text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-400">
+            <thead className="border-b border-border bg-muted text-left text-xs uppercase tracking-wide text-subtle-foreground">
               <tr>
                 <th className="px-4 py-3 font-medium">상품명</th>
                 <th className="px-4 py-3 font-medium">기본가</th>
@@ -69,22 +69,22 @@ export default function SellerProductsPage() {
                 <th className="px-4 py-3 font-medium"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-border">
               {data.map((p) => (
-                <tr key={p.id} className="hover:bg-zinc-50">
-                  <td className="px-4 py-3 font-medium text-zinc-900">
+                <tr key={p.id} className="hover:bg-muted">
+                  <td className="px-4 py-3 font-medium text-foreground">
                     <Link href={`/seller/products/${p.id}`} className="hover:underline">
                       {p.title}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-zinc-600">{p.price}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{p.price}</td>
                   <td className="px-4 py-3">
                     <Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link
                       href={`/seller/products/${p.id}`}
-                      className="text-sm text-zinc-500 hover:text-zinc-900"
+                      className="text-sm text-muted-foreground hover:text-foreground"
                     >
                       관리 →
                     </Link>

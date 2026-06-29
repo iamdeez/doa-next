@@ -20,8 +20,8 @@ export default function DashboardPage() {
       {!isSeller && (
         <Card className="flex items-center justify-between p-5">
           <div>
-            <div className="text-sm font-medium text-zinc-900">판매자로 등록하기</div>
-            <div className="mt-0.5 text-sm text-zinc-400">
+            <div className="text-sm font-medium text-foreground">판매자로 등록하기</div>
+            <div className="mt-0.5 text-sm text-subtle-foreground">
               판매자 등록 후 관리자 승인을 받으면 상품을 판매할 수 있습니다.
             </div>
           </div>
@@ -31,7 +31,7 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      <p className="text-sm text-zinc-400">
+      <p className="text-sm text-subtle-foreground">
         ※ 이 콘솔은 스캐폴딩 단계입니다. 상품·주문·정산 화면은 백엔드 도메인 구현에 맞춰 단계적으로 추가됩니다.
       </p>
     </div>

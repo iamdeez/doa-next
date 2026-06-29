@@ -28,7 +28,7 @@ export default function WishlistPage() {
   return (
     <div className="max-w-2xl space-y-8">
       <section className="space-y-4">
-        <h1 className="text-2xl font-semibold text-zinc-900">위시리스트</h1>
+        <h1 className="text-2xl font-semibold text-foreground">위시리스트</h1>
 
         {wishlist.isLoading && <Loading />}
 
@@ -40,13 +40,13 @@ export default function WishlistPage() {
           {wishlist.data?.map((w) => (
             <div
               key={w.id}
-              className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3"
+              className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-3"
             >
-              <span className="truncate font-mono text-sm text-zinc-700">{w.productId}</span>
+              <span className="truncate font-mono text-sm text-foreground">{w.productId}</span>
               <button
                 onClick={() => remove.mutate(w.productId)}
                 disabled={remove.isPending}
-                className="shrink-0 text-sm text-red-500 hover:text-red-700 disabled:opacity-50"
+                className="shrink-0 text-sm text-danger hover:text-danger disabled:opacity-50"
               >
                 제거
               </button>
@@ -56,16 +56,16 @@ export default function WishlistPage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-zinc-900">최근 본 상품</h2>
+        <h2 className="text-lg font-semibold text-foreground">최근 본 상품</h2>
         {recent.isLoading && <Loading />}
         {recent.data && recent.data.length === 0 && (
-          <p className="text-sm text-zinc-400">기록이 없습니다.</p>
+          <p className="text-sm text-subtle-foreground">기록이 없습니다.</p>
         )}
         <div className="space-y-2">
           {recent.data?.map((r) => (
             <div
               key={r.id}
-              className="rounded-xl border border-zinc-100 bg-white px-4 py-2.5 font-mono text-sm text-zinc-500"
+              className="rounded-card border border-border-subtle bg-surface px-4 py-2.5 font-mono text-sm text-muted-foreground"
             >
               {r.productId}
             </div>

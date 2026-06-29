@@ -31,8 +31,8 @@ export default function SellerRegisterPage() {
   if (isSeller) {
     return (
       <Card className="p-8">
-        <h1 className="text-xl font-semibold text-zinc-900">이미 판매자로 등록됨</h1>
-        <p className="mt-2 text-sm text-zinc-500">현재 승인 상태: {sellerStatus}</p>
+        <h1 className="text-xl font-semibold text-foreground">이미 판매자로 등록됨</h1>
+        <p className="mt-2 text-sm text-muted-foreground">현재 승인 상태: {sellerStatus}</p>
       </Card>
     );
   }
