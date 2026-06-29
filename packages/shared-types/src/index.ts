@@ -391,3 +391,80 @@ export interface UserCoupon {
   usedOrderId: string | null;
   createdAt: string;
 }
+
+// ---------------------------------------------------------------------------
+// admin (Phase 3 — 관리자 콘솔)
+// ---------------------------------------------------------------------------
+
+/** GET /admin/stats/overview — 플랫폼 요약. */
+export interface PlatformOverview {
+  totalOrders: number;
+  completedOrders: number;
+  totalSales: string;
+  totalUsers: number;
+  totalSellers: number;
+}
+
+/** GET /admin/users — 사용자 1건(민감정보 제외). */
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string | null;
+  phone: string | null;
+  createdAt: string;
+}
+
+/** GET /admin/audit-logs — 관리자 조치 감사 로그 1건. */
+export interface AdminAuditLog {
+  id: string;
+  adminId: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  createdAt: string;
+}
+
+export type SellerApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+
+/** GET /admin/sellers/pending — 승인 대기 판매자 1건. */
+export interface AdminSeller {
+  id: string;
+  userId: string;
+  businessName: string;
+  businessNumber: string;
+  representativeName: string;
+  contactPhone: string | null;
+  businessAddress: string | null;
+  status: SellerApprovalStatus;
+}
+
+export type BannerPosition = 'MAIN_TOP' | 'MAIN_MIDDLE' | 'MAIN_BOTTOM' | 'SIDEBAR';
+
+/** GET /admin/banners — 배너 1건. */
+export interface Banner {
+  id: string;
+  title: string;
+  imageUrl: string;
+  linkUrl: string | null;
+  position: BannerPosition;
+  sortOrder: number;
+  isActive: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+}
+
+/** POST /admin/banners — CreateBannerDto. */
+export interface CreateBannerRequest {
+  title: string;
+  imageUrl: string;
+  linkUrl?: string;
+  position?: BannerPosition;
+  sortOrder?: number;
+  isActive?: boolean;
+  startsAt?: string;
+  endsAt?: string;
+}
+
+/** PATCH /admin/banners/:id — UpdateBannerDto(부분). */
+export type UpdateBannerRequest = Partial<CreateBannerRequest>;

@@ -1,23 +1,82 @@
 'use client';
 
-import { EmptyState, PageHeader } from '@doa/ui';
+import { ApiError } from '@doa/api-client';
+import {
+  Badge,
+  Button,
+  EmptyState,
+  ErrorText,
+  Loading,
+  PageHeader,
+  Table,
+  THead,
+  TBody,
+  TR,
+  TH,
+  TD,
+} from '@doa/ui';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 
-/**
- * 판매자 승인(관리자) 화면 — 스캐폴딩.
- *
- * 백엔드는 PATCH /sellers/:id/approve|reject 만 노출하며, "판매자 목록 조회(관리자)"
- * 엔드포인트와 "내가 관리자인가" 판별 엔드포인트가 아직 없다(BE-GAP-001·002).
- * 승인/반려 액션은 백엔드 AdminGuard(ADMIN_USER_IDS)가 최종 강제하므로,
- * 비관리자가 호출하면 403 으로 거부된다. 목록 API 추가 시 이 화면을 실데이터로 채운다.
- */
+/** GET /admin/sellers/pending + POST /admin/sellers/:id/approve (007). */
 export default function AdminSellersPage() {
+  const qc = useQueryClient();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin', 'pendingSellers'],
+    queryFn: () => api.admin.pendingSellers(),
+  });
+
+  const approve = useMutation({
+    mutationFn: (sellerId: string) => api.admin.approveSeller(sellerId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'pendingSellers'] }),
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader title="판매자 승인" subtitle="관리자 전용 · 승인 대기 판매자 관리" />
-      <EmptyState
-        title="목록 API 대기 중"
-        message="관리자용 판매자 목록 조회 엔드포인트가 백엔드에 추가되면 여기에 승인/반려 큐가 표시됩니다."
-      />
+      {isLoading && <Loading />}
+      {error && <ErrorText>{error instanceof ApiError ? error.message : '불러오기 실패'}</ErrorText>}
+      {data && data.length === 0 && (
+        <EmptyState title="대기 중인 판매자 없음" message="승인 대기 큐가 비어 있습니다." />
+      )}
+      {data && data.length > 0 && (
+        <Table>
+          <THead>
+            <TR>
+              <TH>상호</TH>
+              <TH>대표자</TH>
+              <TH>사업자번호</TH>
+              <TH>연락처</TH>
+              <TH className="text-right">조치</TH>
+            </TR>
+          </THead>
+          <TBody>
+            {data.map((s) => (
+              <TR key={s.id}>
+                <TD className="font-medium">{s.businessName}</TD>
+                <TD className="text-muted-foreground">{s.representativeName}</TD>
+                <TD className="text-muted-foreground">{s.businessNumber}</TD>
+                <TD className="text-muted-foreground">{s.contactPhone ?? '—'}</TD>
+                <TD className="text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <Badge tone="warning">{s.status}</Badge>
+                    <Button
+                      size="sm"
+                      onClick={() => approve.mutate(s.id)}
+                      disabled={approve.isPending && approve.variables === s.id}
+                    >
+                      {approve.isPending && approve.variables === s.id ? '처리 중…' : '승인'}
+                    </Button>
+                  </div>
+                </TD>
+              </TR>
+            ))}
+          </TBody>
+        </Table>
+      )}
+      {approve.error && (
+        <ErrorText>{approve.error instanceof ApiError ? approve.error.message : '승인 실패'}</ErrorText>
+      )}
     </div>
   );
 }

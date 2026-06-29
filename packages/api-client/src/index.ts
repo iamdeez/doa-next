@@ -1,16 +1,23 @@
 import type {
   AddImageRequest,
   Address,
+  AdminAuditLog,
+  AdminSeller,
+  AdminUser,
   AuthTokens,
+  Banner,
   Category,
   Coupon,
   CreateAddressRequest,
+  CreateBannerRequest,
   CreateCouponRequest,
   CreateProductRequest,
   CreateShipmentRequest,
   CreateVariantRequest,
   CursorPage,
   IssueCouponRequest,
+  PlatformOverview,
+  UpdateBannerRequest,
   ListProductsQuery,
   LoginRequest,
   Product,
@@ -188,6 +195,31 @@ export function createApiClient(options: HttpClientOptions) {
       /** POST /sellers/me/coupons/:id/issue — 대상 사용자에게 발급. */
       issueSeller: (couponId: string, body: IssueCouponRequest) =>
         http.post<UserCoupon>(`/sellers/me/coupons/${couponId}/issue`, body),
+    },
+
+    admin: {
+      /** GET /admin/stats/overview — 플랫폼 요약. */
+      statsOverview: () => http.get<PlatformOverview>('/admin/stats/overview'),
+      /** GET /admin/settlements — 전체 정산 내역. */
+      settlements: () => http.get<SettlementView[]>('/admin/settlements'),
+      /** GET /admin/users — 사용자 목록(cursor). */
+      users: (cursor?: string, limit?: number) =>
+        http.get<CursorPage<AdminUser>>('/admin/users', { query: { cursor, limit } }),
+      /** GET /admin/audit-logs — 관리자 조치 감사 로그(최신순). */
+      auditLogs: (limit?: number) =>
+        http.get<AdminAuditLog[]>('/admin/audit-logs', { query: { limit } }),
+      /** GET /admin/sellers/pending — 승인 대기 판매자. */
+      pendingSellers: () => http.get<AdminSeller[]>('/admin/sellers/pending'),
+      /** POST /admin/sellers/:id/approve — 판매자 승인. */
+      approveSeller: (sellerId: string) =>
+        http.post<SellerProfile>(`/admin/sellers/${sellerId}/approve`),
+
+      /** GET /admin/banners — 전체 배너(활성/비활성). */
+      banners: () => http.get<Banner[]>('/admin/banners'),
+      createBanner: (body: CreateBannerRequest) => http.post<Banner>('/admin/banners', body),
+      updateBanner: (id: string, body: UpdateBannerRequest) =>
+        http.patch<Banner>(`/admin/banners/${id}`, body),
+      deleteBanner: (id: string) => http.delete<void>(`/admin/banners/${id}`),
     },
   };
 }
