@@ -6,6 +6,9 @@ import 'package:intl/intl.dart';
 
 import '../../core/providers.dart';
 import '../../theme/app_theme.dart';
+import '../cart/cart_screen.dart';
+import '../product/product_detail_screen.dart';
+import '../search/search_screen.dart';
 
 final _won = NumberFormat('#,###', 'ko_KR');
 
@@ -31,11 +34,13 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text('DOA',
             style: TextStyle(color: DoaColors.blue, fontWeight: FontWeight.w900, fontSize: 24)),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: Icon(Icons.shopping_cart_outlined),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.shopping_cart_outlined),
+            onPressed: () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const CartScreen())),
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: RefreshIndicator(
@@ -83,18 +88,22 @@ class _SearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        decoration: BoxDecoration(
-          color: DoaColors.muted,
-          borderRadius: BorderRadius.circular(DoaRadius.control),
-        ),
-        child: Row(
-          children: const [
-            Expanded(
-                child: Text('검색어를 입력하세요.', style: TextStyle(color: DoaColors.fgSubtle))),
-            Icon(Icons.search, color: DoaColors.fgMuted),
-          ],
+      child: InkWell(
+        onTap: () => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const SearchScreen())),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          decoration: BoxDecoration(
+            color: DoaColors.muted,
+            borderRadius: BorderRadius.circular(DoaRadius.control),
+          ),
+          child: Row(
+            children: const [
+              Expanded(
+                  child: Text('검색어를 입력하세요.', style: TextStyle(color: DoaColors.fgSubtle))),
+              Icon(Icons.search, color: DoaColors.fgMuted),
+            ],
+          ),
         ),
       ),
     );
@@ -205,7 +214,12 @@ class _ProductCard extends StatelessWidget {
     final images = (product['images'] as List?) ?? [];
     final imageUrl = images.isNotEmpty ? images.first['url'] as String? : null;
 
-    return Column(
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: product['id'] as String)),
+      ),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AspectRatio(
@@ -229,6 +243,7 @@ class _ProductCard extends StatelessWidget {
         Text('${_won.format(num.tryParse(price) ?? 0)}원',
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
       ],
+      ),
     );
   }
 }
