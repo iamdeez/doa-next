@@ -2,13 +2,15 @@ import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes 
 import { cn } from './cn';
 
 const CONTROL =
-  'mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-900';
+  'mt-1 w-full rounded-control border border-border bg-surface px-3 py-2 text-sm text-foreground ' +
+  'outline-none transition-colors placeholder:text-subtle-foreground ' +
+  'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30';
 
 function Label({ label, required }: { label: string; required?: boolean }) {
   return (
     <>
       {label}
-      {required && <span className="ml-0.5 text-red-500">*</span>}
+      {required && <span className="ml-0.5 text-danger">*</span>}
     </>
   );
 }
@@ -19,7 +21,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 export function Input({ label, required, className, ...rest }: InputProps) {
   return (
-    <label className="block text-sm font-medium text-zinc-700">
+    <label className="block text-sm font-medium text-foreground">
       <Label label={label} required={required} />
       <input required={required} className={cn(CONTROL, className)} {...rest} />
     </label>
@@ -32,9 +34,9 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 
 export function Select({ label, required, className, children, ...rest }: SelectProps) {
   return (
-    <label className="block text-sm font-medium text-zinc-700">
+    <label className="block text-sm font-medium text-foreground">
       <Label label={label} required={required} />
-      <select required={required} className={cn(CONTROL, 'bg-white', className)} {...rest}>
+      <select required={required} className={cn(CONTROL, className)} {...rest}>
         {children}
       </select>
     </label>
@@ -47,7 +49,7 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
 
 export function Textarea({ label, required, className, ...rest }: TextareaProps) {
   return (
-    <label className="block text-sm font-medium text-zinc-700">
+    <label className="block text-sm font-medium text-foreground">
       <Label label={label} required={required} />
       <textarea required={required} className={cn(CONTROL, className)} {...rest} />
     </label>

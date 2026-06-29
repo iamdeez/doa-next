@@ -12,8 +12,8 @@ export function PageHeader({
   return (
     <div className="flex items-start justify-between">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-zinc-500">{subtitle}</p>}
+        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="shrink-0">{actions}</div>}
     </div>

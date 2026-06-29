@@ -1,18 +1,59 @@
 @import 'tailwindcss';
 
+/* 디자인 토큰 SSOT (@doa/design-tokens) — :root(light) + .dark(dark) CSS 변수. */
+@import '../../../packages/design-tokens/build/web/tokens.css';
+
 /* 워크스페이스 공유 UI 패키지의 Tailwind 클래스 스캔 (node_modules 는 기본 미스캔). */
 @source '../../../packages/ui/src';
 
-:root {
-  --background: #f7f8fa;
-  --foreground: #18181b;
+/* 시맨틱 토큰 → Tailwind 유틸리티 매핑 (Tailwind 4 @theme). 컴포넌트는 시맨틱 클래스 사용. */
+@theme inline {
+  --color-canvas: var(--bg-canvas);
+  --color-surface: var(--bg-surface);
+  --color-raised: var(--bg-raised);
+  --color-muted: var(--bg-muted);
+  --color-inverse: var(--bg-inverse);
+
+  --color-foreground: var(--fg-default);
+  --color-muted-foreground: var(--fg-muted);
+  --color-subtle-foreground: var(--fg-subtle);
+  --color-on-accent: var(--fg-on-accent);
+  --color-inverse-foreground: var(--fg-inverse);
+
+  --color-border: var(--border-default);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-ring: var(--border-focus);
+
+  --color-accent: var(--accent-solid);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-foreground: var(--accent-fg);
+
+  --color-success: var(--success-solid);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-fg);
+  --color-warning: var(--warning-solid);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-foreground: var(--warning-fg);
+  --color-danger: var(--danger-solid);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-foreground: var(--danger-fg);
+  --color-info: var(--info-solid);
+  --color-info-soft: var(--info-soft);
+  --color-info-foreground: var(--info-fg);
+
+  --radius-control: var(--radius-control);
+  --radius-card: var(--radius-card);
+  --radius-modal: var(--radius-modal);
+  --radius-pill: var(--radius-pill);
 }
 
 html,
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-canvas);
+  color: var(--fg-default);
   font-family:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Apple SD Gothic Neo',
-    'Noto Sans KR', sans-serif;
+    Pretendard, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
 }
