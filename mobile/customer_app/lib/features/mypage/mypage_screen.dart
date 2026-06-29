@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 import '../../theme/app_theme.dart';
 import '../address/address_book_screen.dart';
+import '../coupon/coupon_box_screen.dart';
 import '../order/order_history_screen.dart';
 import '../wishlist/wishlist_screen.dart';
 
@@ -123,7 +124,9 @@ class _QuickCard extends StatelessWidget {
           item(Icons.favorite, '찜',
               onTap: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const WishlistScreen()))),
-          item(Icons.confirmation_num, '쿠폰함'),
+          item(Icons.confirmation_num, '쿠폰함',
+              onTap: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const CouponBoxScreen()))),
         ],
       ),
     );
