@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/providers.dart';
 import '../../theme/app_theme.dart';
+import '../review/review_write_screen.dart';
 import 'delivery_tracking_screen.dart';
 import 'order_status.dart';
 
@@ -70,7 +71,7 @@ class OrderDetailScreen extends ConsumerWidget {
               ),
               const Divider(height: 8, thickness: 8, color: DoaColors.canvas),
               _sectionTitle('주문 상품'),
-              for (final it in items) _itemRow(it),
+              for (final it in items) _itemRow(context, it, status),
               _DeliveryButton(orderId: orderId, status: status),
               const Divider(height: 8, thickness: 8, color: DoaColors.canvas),
               _sectionTitle('배송지'),
@@ -120,36 +121,56 @@ class OrderDetailScreen extends ConsumerWidget {
         child: Text(t, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
       );
 
-  Widget _itemRow(Map<String, dynamic> it) {
+  Widget _itemRow(BuildContext context, Map<String, dynamic> it, String status) {
     final qty = num.tryParse(it['quantity']?.toString() ?? '1') ?? 1;
     final unit = num.tryParse(it['unitPrice']?.toString() ?? '0') ?? 0;
+    // 배송완료/구매확정 항목만 후기 작성 가능 (FR-021 — 배송완료 후 작성).
+    final reviewable = status == 'delivered' || status == 'completed';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          Container(
-            width: 56, height: 56,
-            decoration: BoxDecoration(color: DoaColors.muted, borderRadius: BorderRadius.circular(DoaRadius.control)),
-            child: const Icon(Icons.image_outlined, color: DoaColors.fgSubtle, size: 22),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 56, height: 56,
+                decoration: BoxDecoration(color: DoaColors.muted, borderRadius: BorderRadius.circular(DoaRadius.control)),
+                child: const Icon(Icons.image_outlined, color: DoaColors.fgSubtle, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(it['productTitle']?.toString() ?? '',
+                        maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14)),
+                    const SizedBox(height: 4),
+                    Text('${it['optionValue'] ?? ''} · $qty' '개',
+                        style: const TextStyle(color: DoaColors.fgMuted, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    Text('${_won.format(unit * qty)}원',
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(it['productTitle']?.toString() ?? '',
-                    maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14)),
-                const SizedBox(height: 4),
-                Text('${it['optionValue'] ?? ''} · $qty' '개',
-                    style: const TextStyle(color: DoaColors.fgMuted, fontSize: 12)),
-                const SizedBox(height: 4),
-                Text('${_won.format(unit * qty)}원',
-                    style: const TextStyle(fontWeight: FontWeight.w800)),
-              ],
+          if (reviewable)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => ReviewWriteScreen(orderItem: it)),
+                  ),
+                  child: const Text('구매후기 작성'),
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );
