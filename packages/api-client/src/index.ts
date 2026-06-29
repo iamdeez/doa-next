@@ -214,6 +214,15 @@ export function createApiClient(options: HttpClientOptions) {
       approveSeller: (sellerId: string) =>
         http.post<SellerProfile>(`/admin/sellers/${sellerId}/approve`),
 
+      /** GET /admin/coupons — 관리자 발급 쿠폰 목록(cursor). */
+      listCoupons: (cursor?: string, take?: number) =>
+        http.get<CursorPage<Coupon>>('/admin/coupons', { query: { cursor, take } }),
+      /** POST /admin/coupons — 관리자 쿠폰 생성. */
+      createCoupon: (body: CreateCouponRequest) => http.post<Coupon>('/admin/coupons', body),
+      /** POST /admin/coupons/:id/issue — 대상 사용자에게 발급. */
+      issueCoupon: (couponId: string, body: IssueCouponRequest) =>
+        http.post<UserCoupon>(`/admin/coupons/${couponId}/issue`, body),
+
       /** GET /admin/banners — 전체 배너(활성/비활성). */
       banners: () => http.get<Banner[]>('/admin/banners'),
       createBanner: (body: CreateBannerRequest) => http.post<Banner>('/admin/banners', body),

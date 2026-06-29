@@ -22,6 +22,7 @@ const NAV: NavItem[] = [
   { href: '/seller/settlements', label: '정산', section: 'seller' },
   { href: '/seller/stats', label: '판매 통계', section: 'seller' },
   { href: '/admin/sellers', label: '판매자 승인', section: 'admin' },
+  { href: '/admin/coupons', label: '쿠폰(관리자)', section: 'admin' },
   { href: '/admin/banners', label: '배너', section: 'admin' },
   { href: '/admin/settlements', label: '전체 정산', section: 'admin' },
   { href: '/admin/stats', label: '플랫폼 통계', section: 'admin' },
