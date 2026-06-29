@@ -760,3 +760,23 @@ model Banner {
   @@map("banners")
   @@schema("admin")
 }
+
+/// 관리자 조치 감사 로그 — append-only (013 GAP-007-01). 책임 추적용.
+/// adminId/targetId 는 cross-schema plain String (P-001, FK 미선언).
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  /// 조치를 수행한 관리자 userId (users.users.id 참조, FK 미선언)
+  adminId    String
+  /// 조치 종류 (예: SELLER_APPROVE) — 확장 위해 String
+  action     String
+  /// 대상 엔티티 종류 (예: SELLER, BANNER, USER)
+  targetType String
+  /// 대상 엔티티 식별자
+  targetId   String
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([adminId, createdAt(sort: Desc)])
+  @@map("admin_audit_logs")
+  @@schema("admin")
+}

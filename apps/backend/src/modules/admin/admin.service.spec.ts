@@ -10,9 +10,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SellerStatus } from '@prisma/client';
 import { AdminService } from './admin.service';
+import { AdminRepository } from './admin.repository';
 import { SellerService } from '../seller/seller.service';
 import { UserService } from '../user/user.service';
-import { MAX_USER_PAGE_LIMIT } from './admin.constants';
+import {
+  AUDIT_ACTION,
+  AUDIT_TARGET,
+  MAX_AUDIT_LOG_LIMIT,
+  MAX_USER_PAGE_LIMIT,
+} from './admin.constants';
 
 const mockSellerService = {
   listByStatus: jest.fn(),
@@ -21,6 +27,11 @@ const mockSellerService = {
 
 const mockUserService = {
   listUsersForAdmin: jest.fn(),
+};
+
+const mockAdminRepository = {
+  createAuditLog: jest.fn(),
+  listAuditLogs: jest.fn(),
 };
 
 describe('AdminService', () => {
@@ -33,6 +44,7 @@ describe('AdminService', () => {
         AdminService,
         { provide: SellerService, useValue: mockSellerService },
         { provide: UserService, useValue: mockUserService },
+        { provide: AdminRepository, useValue: mockAdminRepository },
       ],
     }).compile();
 
@@ -56,14 +68,38 @@ describe('AdminService', () => {
   });
 
   describe('approveSeller', () => {
-    it('when_called_then_reuses_seller_approve', async () => {
+    it('when_called_then_reuses_seller_approve_and_records_audit', async () => {
       const approved = { id: 's1', status: SellerStatus.APPROVED };
       mockSellerService.approve.mockResolvedValue(approved);
+      mockAdminRepository.createAuditLog.mockResolvedValue({ id: 'log-1' });
 
-      const result = await service.approveSeller('s1');
+      const result = await service.approveSeller('admin-user-1', 's1');
 
       expect(mockSellerService.approve).toHaveBeenCalledWith('s1');
+      // 013: 승인 후 감사 로그 append
+      expect(mockAdminRepository.createAuditLog).toHaveBeenCalledWith({
+        adminId: 'admin-user-1',
+        action: AUDIT_ACTION.SELLER_APPROVE,
+        targetType: AUDIT_TARGET.SELLER,
+        targetId: 's1',
+      });
       expect(result).toBe(approved);
+    });
+  });
+
+  describe('listAuditLogs', () => {
+    it('when_limit_undefined_then_default_clamped_take', async () => {
+      mockAdminRepository.listAuditLogs.mockResolvedValue([]);
+      await service.listAuditLogs(undefined);
+      expect(mockAdminRepository.listAuditLogs).toHaveBeenCalledWith(50); // DEFAULT
+    });
+
+    it('when_limit_exceeds_max_then_clamped_to_max', async () => {
+      mockAdminRepository.listAuditLogs.mockResolvedValue([]);
+      await service.listAuditLogs(9999);
+      expect(mockAdminRepository.listAuditLogs).toHaveBeenCalledWith(
+        MAX_AUDIT_LOG_LIMIT,
+      );
     });
   });
 

@@ -252,8 +252,8 @@ const CROSS_SCHEMA_RULES: Array<{
     ],
     label: 'StatsRepository (007)',
   },
-  // AdminRepository: 자체 테이블 없음 — 운영 조치는 SellerService/UserService DI 경유.
-  // 어떤 스키마 모델도 직접 참조하지 않음.
+  // AdminRepository: admin 스키마 자기 소유 테이블(admin_audit_logs)만 접근(013 GAP-007-01).
+  // 타 도메인 데이터는 Seller/User Service DI 경유 — 아래 타 스키마 모델 직접 참조 금지.
   {
     file: 'src/modules/admin/admin.repository.ts',
     forbiddenModels: [
@@ -263,7 +263,7 @@ const CROSS_SCHEMA_RULES: Array<{
       ...ORDERS_SCHEMA_MODELS,
       ...PAYMENTS_SCHEMA_MODELS,
     ],
-    label: 'AdminRepository (007)',
+    label: 'AdminRepository (007/013)',
   },
 ];
 
