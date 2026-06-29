@@ -1,3 +1,94 @@
+## [006-seller-coupon-settlement-stats] 구현 완료
+
+> v1.1.0 의 여섯 번째 차수 — **FRONTEND-PLAN Phase 2(판매자 부가 운영 화면 — 통계·정산·쿠폰) + console 전
+> 페이지 디자인 토큰 통일**. base `4daca5a` → `1a6d70d`. 커밋 2개: `1b3ffd1`(Phase 2 화면) → `1a6d70d`(토큰
+> 통일). 변경 라인은 `git diff 4daca5a 1a6d70d -- apps/console packages` 로 재생성(15 files, +503/-51).
+> **마이그레이션 없음**(DB 스키마 변경 0 — 프론트 console 화면 + 공유 패키지). **신규 의존성 0**(`package.json`
+> 변경 없음). 선택 단계 전부 N. 004·005(판매자 주문·배송) 위에 판매자 운영 화면을 마저 올린다.
+
+**변경 파일**:
+- `apps/console/app/(dashboard)/seller/stats/page.tsx`(신규): 판매 통계. `useQuery(['seller','stats'],
+  api.stats.seller, { enabled: isSeller })`(`GET /seller/stats` → `SellerStats`)로 조회 후 `StatCard` 2개
+  (누적 매출 `formatKRW(salesTotal)`·완료 주문 수 `orderCount.toLocaleString('ko-KR')`건). 구매 확정
+  (completed) 기준. 로딩·에러·비판매자(`EmptyState`) 분기.
+- `apps/console/app/(dashboard)/seller/settlements/page.tsx`(신규): 정산 내역. `api.settlement.listMine()`
+  (`GET /settlements` → `SettlementView[]`)로 조회 후 `@doa/ui` Table 렌더(정산 기간·총 매출·수수료
+  `−formatKRW`·지급액·상태 Badge). status `completed`→"지급완료"(success)·그 외→"정산대기"(warning). 빈·
+  비판매자 분기.
+- `apps/console/app/(dashboard)/seller/coupons/page.tsx`(신규): 쿠폰 목록 + 생성 + 발급. `api.coupon.
+  listSeller()`(`GET /sellers/me/coupons` → `CursorPage<Coupon>`, `data.items` Table — 할인·최소주문·발급/
+  총량·만료·발급 버튼). `CreateCouponDialog`(Radix Dialog — `Select`(type FIXED/PERCENTAGE)·`Input`·클라이언트
+  `validate`(discountValue>0·PERCENTAGE 1~100, 010 서버 검증 정합)·`createSeller`(`POST /sellers/me/coupons`)
+  `onSuccess` invalidate `['seller','coupons']`+닫기). `IssueCouponDialog`(Radix Dialog — targetUserId·
+  `issueSeller`(`POST /sellers/me/coupons/:id/issue` → `UserCoupon`) `onSuccess` 성공 문구+닫기). 기존
+  `lib/order.ts` `formatKRW` 재사용.
+- `packages/shared-types/src/index.ts`: 통계·정산·쿠폰 view 타입 8종(`SellerStats`·`SettlementStatus`·
+  `SettlementView`·`CouponType`·`Coupon`·`CreateCouponRequest`·`IssueCouponRequest`·`UserCoupon`). 백엔드
+  응답이 OpenAPI 에 미정의(Prisma 엔티티 반환 — 001 coupon-gap)이므로 전이형 view 타입으로 한시 정의. 금전
+  필드(`salesTotal`·`totalSales`·`commission`·`payoutAmount`·`discountValue`·`maxDiscountAmount`·
+  `minOrderAmount`)는 Decimal→JSON 직렬화상 **문자열**.
+- `packages/api-client/src/index.ts`: `createApiClient` 반환에 `stats`(seller)·`settlement`(listMine)·
+  `coupon`(listSeller·createSeller·issueSeller) 도메인 facade 추가. `api.http` 기반(`http.get/post`), view
+  타입을 응답 제네릭으로 사용. `coupon.listSeller` 는 `{ query: { cursor, take } }`. 기존 facade(auth·user·
+  seller·catalog·inventory·order·shipping)·`client`·`http` 불변.
+- `apps/console/app/(dashboard)/layout.tsx`: AppShell `NAV` 판매자 섹션에 "쿠폰"(`/seller/coupons`)·"정산"
+  (`/seller/settlements`)·"판매 통계"(`/seller/stats`) 3개 추가(`isSeller` 한정 노출).
+- console 기존 화면 9개(`login`·`dashboard`·`account/profile`·`account/addresses`·`account/wishlist`·
+  `seller/products`·`seller/products/[id]`·`seller/products/new`·`seller/register`): 하드코딩 팔레트
+  (`zinc-*`·`red-*`·`amber-*`·`green-*`·`bg-white`)를 @doa/design-tokens 시맨틱 토큰 클래스(`bg-surface`·
+  `text-foreground`·`text-muted-foreground`·`text-subtle-foreground`·`border-border`·`divide-border`·
+  `bg-muted`·`rounded-card`·`text-danger`·`bg-warning-soft`·`border-warning`·`text-warning(-foreground)` 등)
+  로 전환(클래스명만 교체, 구조·props·동작 불변). console 화면 하드코딩 팔레트 0건.
+
+**검증**: `pnpm --filter console typecheck` 0 error / `pnpm --filter console build` 17 라우트 PASS(신규
+`/seller/stats`·`/seller/settlements`·`/seller/coupons` 포함) / 기존 화면(상품·계정·관리자·주문·배송) 동작
+회귀 0 / `grep -rE "(zinc|red|amber|green)-[0-9]{2,3}|bg-white" apps/console/app` **0건**. 신규 단위/e2e 테스트
+0(UI 화면 — `git diff 4daca5a 1a6d70d -- apps/console packages` 에 `*.spec.ts`·`*.e2e.ts` 변경 0, 검증은
+타입체크 + 빌드 + 정적 구조 리뷰 + grep 으로 갈음). 변경 라인 직접 카운트(coupons +235·settlements +78·
+shared-types +70·stats +36·api-client +30·products[id] +16/-16·addresses +8/-8·wishlist +7/-7·products +7/-7·
+profile +3/-3·dashboard +3/-3·login +3/-3·layout +3·products/new +2/-2·register +2/-2 = 15 files +503/-51).
+마이그레이션 없음(DB 스키마 변경 0). 신규 의존 0(`package.json` 변경 없음). `@doa/ui`(StatCard·Select·Table·
+Dialog)·`lib/order.ts`(formatKRW) 기존 자산 재사용(변경 0).
+
+**해결**: **FRONTEND-PLAN Phase 2(판매자 운영 화면) — 004 GAP-004-01 (4)의 판매자 통계·정산·쿠폰 화면 부분
+RESOLVED + 002 디자인 시스템의 화면 레벨 미통일 RESOLVED**. 004·005 가 완성한 Phase 1(주문 이행) 위에 판매자
+매출 확인·정산 조회·쿠폰 생성/발급 운영 화면 3종을 제공. 004 와 동일하게 응답 스키마가 OpenAPI 미정의인
+도메인이라 타입드 client 대신 전이형 view 타입 + `api.stats`/`api.settlement`/`api.coupon` facade 채택. 쿠폰
+생성 폼에 010 서버 검증과 정합되는 클라이언트 검증 적용. 병행하여 console 전 화면의 하드코딩 팔레트를 시맨틱
+토큰으로 통일하여 002 디자인 시스템을 화면 레벨까지 확장(하드코딩 0). 쿠폰 cursor 더보기·발급 후 목록 갱신·
+서버 에러 표면 강화·낙관적 업데이트·e2e·응답 스키마 보강·다크 토글 UI 는 GAP-006-01(Low) / 002 GAP-002-01
+후속.
+
+**후속 작업 시 주의사항**:
+- **응답 view 타입 한시성(004 연속)**: 통계·정산·쿠폰 view 타입(`@doa/shared-types` — `SellerStats`·
+  `SettlementView`·`Coupon`·`UserCoupon` 등, 금전 string)은 백엔드 응답이 OpenAPI 에 미정의(Prisma 엔티티
+  반환 — 001 coverage-gap)여서 한시 정의한 것이다. 백엔드에 도메인별 응답 DTO + `@ApiResponse({ type })` 를
+  보강하고 코드젠을 재생성하면 생성 타입(`Schemas['...']`)으로 대체하고 화면을 003 타입드 client 로 전환할 수
+  있다. 금전 필드는 Decimal→문자열이므로 대체 후에도 `string` 유지를 확인한다(부동소수점 금지 — P-005).
+- **쿠폰 검증은 010 서버 검증과 정합(클라이언트는 UX)**: `coupons/page.tsx` 의 `validate`(discountValue>0·
+  PERCENTAGE 1~100)는 제출 전 UX 즉시 피드백이며, 실제 강제는 백엔드 010 서버 검증(class-validator)이 담당한다.
+  백엔드 검증 규칙이 바뀌면 클라이언트 `validate` 도 함께 갱신하여 정합을 유지한다(불일치 시 서버 거부가
+  `ApiError` 로 표면화).
+- **쿠폰 cursor 미소비·발급 후 비갱신(GAP-006-01, Low)**: `api.coupon.listSeller` facade 는 cursor/take 를
+  지원하나 화면은 첫 페이지(`data.items`)만 렌더한다('더보기' 미구현). `issueSeller` `onSuccess` 는 목록을
+  invalidate 하지 않아 발급/총량 컬럼이 발급 직후 즉시 갱신되지 않는다(다음 조회 시 반영). 더보기·즉시 반영이
+  필요하면 cursor 추가 로드 + `['seller','coupons']` invalidate 를 추가한다.
+- **금전 헬퍼 재사용(신규 0)**: 3개 신규 화면은 004 산출 `apps/console/lib/order.ts` 의 `formatKRW(amount:
+  string)` 를 재사용한다. 신규 금전 헬퍼를 추가하지 않았으며, 신규 금전 화면은 동일 헬퍼를 재사용한다(부동
+  소수점 금지 일관 — P-005).
+- **토큰 통일 = 클래스명 교체(동작 불변)**: 기존 화면 9개의 토큰 전환은 하드코딩 Tailwind 팔레트를 시맨틱 토큰
+  클래스로 일괄 치환한 것으로 컴포넌트 구조·props·핸들러는 불변이다. console 화면 하드코딩 팔레트는 0건이며,
+  `.dark` 분기가 화면 레벨까지 작동한다(다크 토글 UI 는 002 GAP-002-01 잔여). 신규 화면도 시맨틱 토큰만
+  사용하므로, 향후 화면 추가 시 하드코딩 팔레트 0 을 유지한다(grep 게이트 권고).
+- **권한은 백엔드 강제(UI 표시 분기만)**: 본 화면들의 `isSeller` 분기는 표시 편의이며 데이터 보호가 아니다.
+  실제 인가는 백엔드 판매자 스코프(쿠폰 생성은 APPROVED 판매자)가 강제한다. UI 분기만 믿고 백엔드 권한 검증을
+  생략하면 안 된다.
+- **`@doa/ui` 변경 0(기존 자산 재사용)**: 본 차수는 `StatCard`(`./card`)·`Select`(`./field`)·Table 프리미티브
+  (`./table` — 004)·Dialog(Radix `./dialog` — 002)를 재사용하며 `@doa/ui` 를 변경하지 않았다. 디자인 시스템
+  컴포넌트가 화면 요구를 이미 충족함을 보여준다(신규 화면이 패키지 변경 없이 구성됨).
+- **Phase 2 후속(GAP-006-01, Low)**: 쿠폰 더보기·발급 후 목록 갱신·서버 에러 필드 매핑·낙관적 업데이트
+  (`onMutate`)·정산/통계 기간 필터·차트·Playwright e2e 는 본 차수 범위 외다. 후속에서 보강한다.
+
 ## [005-order-shipping-gap-fill] 구현 완료
 
 > v1.1.0 의 다섯 번째 차수 — **004 에서 발견·기록된 BE-GAP 2건(GAP-004-01 (1)·(2))을 백엔드 신규 라우트로
