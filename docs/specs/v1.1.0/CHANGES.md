@@ -1,3 +1,77 @@
+## [005-order-shipping-gap-fill] 구현 완료
+
+> v1.1.0 의 다섯 번째 차수 — **004 에서 발견·기록된 BE-GAP 2건(GAP-004-01 (1)·(2))을 백엔드 신규 라우트로
+> 해소**. base `8bba04d`(004 완료) → `8b48eb5`(005 완료). 변경 라인은 `git diff 8bba04d 8b48eb5 -- apps/
+> backend packages apps/console` 로 재생성(12 files, +415/-78). **마이그레이션 없음**(DB 스키마 변경 0 —
+> 기존 shipment·order 테이블 조회만). **신규 의존성 0**(`package.json` 변경 없음). 선택 단계 Security=Y.
+
+**변경 파일**:
+- `apps/backend/src/modules/shipping/shipping.service.ts`: `getTracking` 의 인라인 권한 3축 검증을
+  `_assertCanViewOrder(userId, orderId)` private 헬퍼로 추출하고, 신규 `getByOrder(userId, orderId)`(권한
+  3축 검증 후 `findByOrderId` 반환, 송장 미존재 시 **null**)가 공유. 인가 단일 지점. 예외 메시지
+  `'Not allowed to view this shipment'` 통일. `getTracking` 동작 불변(리팩토링).
+- `apps/backend/src/modules/shipping/shipping.repository.ts`: `findByOrderId(orderId)` —
+  `prisma.tx.shipment.findFirst({ where: { orderId }, orderBy: { createdAt: 'desc' } })`. 주문당 최신 송장
+  1건(현재 주문당 1건 가정), 미존재 시 null.
+- `apps/backend/src/modules/shipping/shipping.controller.ts`: `@Get()` `getByOrder(@CurrentUser,
+  @Query('orderId'))` → `GET /shipments?orderId=`(권한 3축, `Shipment | null`).
+- `apps/backend/src/modules/order/order.service.ts`: `getSellerOrderDetail(userId, orderId)` —
+  `getApprovedSeller` → `orderRepository.findById` → 주문 미존재 404(`NotFoundException`)·items 중 본인
+  `sellerId` 불일치 시 403(`ForbiddenException`). items 포함 `OrderWithDetails` 반환.
+- `apps/backend/src/modules/order/seller-order.controller.ts`: `@Get(':orderId')` `getSellerOrder` →
+  `GET /seller/orders/:orderId`(판매자 단건 주문 상세, 본인 소유).
+- `apps/backend/openapi.json`: 신규 라우트 2개 재생성(paths 71 — `/shipments` 에 GET 추가·
+  `/seller/orders/{orderId}` 신규).
+- `packages/shared-types/src/index.ts`: `OrderItemView`(id·productId·sellerId·variantId·unitPrice[string]·
+  quantity)·`SellerOrderDetail`(`SellerOrder` 확장 + `items: OrderItemView[]`). 금전 string(전이형 view
+  타입 — 004 연속).
+- `packages/shared-types/src/openapi.gen.ts`: 신규 라우트 2개 생성 타입 재생성.
+- `packages/api-client/src/index.ts`: `order.getSellerDetail(orderId)`(GET `/seller/orders/:id` →
+  `SellerOrderDetail`)·`shipping.getByOrder(orderId)`(GET `/shipments?orderId=` → `Shipment | null`,
+  `{ query: { orderId } }`) facade 추가. 기존 facade 메서드 불변.
+- `apps/console/app/(dashboard)/seller/orders/[id]/ship/page.tsx`: 진입 시 `shipmentQuery`
+  (`api.shipping.getByOrder`)로 기존 송장 복구 + `orderQuery`(`api.order.getSellerDetail`)로 주문 상태·금액
+  헤더 표시. `shipment = shipmentQuery.data ?? null` 로 등록 폼/관리 패널 분기. create·updateStatus
+  `onSuccess` 가 `qc.setQueryData(['shipment','byOrder',orderId])` 캐시 갱신(004 세션 `useState` 대체 —
+  재진입 정상 동작).
+- `apps/backend/src/modules/shipping/shipping.service.spec.ts`: `getByOrder` 단위 테스트 3(seller→shipment·
+  buyer+미존재→null·stranger→Forbidden[findByOrderId 미호출]).
+- `apps/backend/src/modules/order/order.service.spec.ts`: `getSellerOrderDetail` 단위 테스트 3(owner→order·
+  not_owner→Forbidden·missing→NotFound).
+
+**검증**: `pnpm --filter backend typecheck` 0 error / `pnpm --filter backend test` 261 PASS(004 대비 **+6**:
+getByOrder 3·getSellerOrderDetail 3) / `pnpm --filter backend test:e2e` 84 PASS / `openapi.json` paths 71
+(`/shipments` GET·`/seller/orders/{orderId}`) / `pnpm --filter console typecheck` 0 error / `pnpm --filter
+console build` 14 라우트 PASS(`/seller/orders/[id]/ship` ƒ 동적) / 기존 라우트·facade·view 타입·console 화면
+회귀 0. 변경 라인 직접 카운트(ship +138/-72·openapi.gen +61/-1·openapi.json +60·shipping.spec +46·order.spec
++32·shipping.service +16/-5·order.service +14·shared-types +14·shipping.controller +10·seller-order.controller
++9·shipping.repository +8·api-client +7 = 12 files +415/-78). 마이그레이션 없음(DB 스키마 변경 0). 신규 의존
+0(`package.json` 변경 없음).
+
+**해결**: **004 GAP-004-01 의 BE-GAP 2건 RESOLVED** — (1) 판매자 단건 주문 조회(`GET /seller/orders/:orderId`,
+items·소유검증)·(2) 주문→송장 조회(`GET /shipments?orderId=`, 권한 3축·null)를 백엔드에 추가하고, console
+ship 페이지가 진입 시 `getByOrder` 로 기존 송장을 복구하고 `getSellerDetail` 로 주문 컨텍스트(상태·금액)를
+표시하도록 전환하여 **004 의 세션 state 재진입 한계를 해소**했다. 그 과정에서 shipping 권한 3축 검증을
+`_assertCanViewOrder` 로 추출해 `getTracking`·`getByOrder` 가 공유(중복 제거). 004 gaps.md 의 GAP-004-01
+(1)·(2) 상태를 RESOLVED(005)로 갱신.
+
+**후속 작업 시 주의사항**:
+- **권한 헬퍼 단일 지점(핵심)**: shipping 의 권한 3축(구매자 본인 OR 해당 주문 판매자, 미허가 403)은 이제
+  `_assertCanViewOrder` 한 곳에 모여 있다. `getTracking`·`getByOrder` 가 공유하므로, 권한 규칙 변경 시 이
+  헬퍼만 수정하면 두 라우트에 일관 반영된다. 송장 관련 신규 조회 라우트 추가 시에도 이 헬퍼를 재사용한다.
+- **송장 미존재 = null(예외 아님)**: `getByOrder`/`findByOrderId` 는 송장 미등록(발송 전)을 `null` 로 신호한다
+  (404/throw 아님). console 은 `shipmentQuery.data ?? null` 로 등록 폼/관리 패널을 분기한다. 호출 측은 null
+  을 정상 흐름으로 처리해야 한다.
+- **주문당 송장 1건 가정**: `findByOrderId` 는 `findFirst orderBy createdAt desc` 로 최신 1건만 반환한다.
+  분할배송(주문당 송장 N건) 도입 시 이 가정을 재검토하고 배열 반환 + 송장 선택 UI 가 필요하다(GAP-005-01).
+- **응답 view 타입 한시성(004 연속)**: `SellerOrderDetail`·`OrderItemView` 도 백엔드 응답이 OpenAPI 미정의
+  (Prisma 엔티티 반환)여서 전이형 view 타입(금전 string)으로 한시 정의한 것이다. 응답 DTO + `@ApiResponse
+  ({ type })` 보강 후 코드젠 재생성하면 생성 타입으로 대체 가능하다(004 GAP-004-01 (3) / 001 GAP-001-01 연속).
+- **주문 items UI 미렌더**: `getSellerOrderDetail` 은 items 포함 주문을 반환하나, console ship 헤더는 상태·
+  금액만 표시한다. 품목 상세 표시가 필요해지면 `SellerOrderDetail.items` 렌더를 추가한다(GAP-005-01).
+- **Phase 2 후속(GAP-005-01, Low)**: 송장 status 업데이트 e2e·낙관적 업데이트(`onMutate`)는 본 차수 범위
+  외다(004 와 동일). console mutation 은 서버 응답 후 `setQueryData`/`invalidate` 로 정합성을 유지한다.
+
 ## [004-seller-order-shipping] 구현 완료
 
 > v1.1.0 프론트엔드 사이클의 네 번째 차수(003 api-client 다음, FRONTEND-PLAN Phase 1 판매자 화면 첫 차수).

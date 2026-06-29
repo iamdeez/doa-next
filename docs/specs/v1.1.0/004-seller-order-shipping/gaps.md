@@ -29,11 +29,15 @@
 - **내용**:
   - (1) **BE-GAP: 판매자용 단건 주문 조회 엔드포인트 부재** (Medium) — `GET /orders/:id` 는 구매자 스코프
     이므로 ship 페이지가 판매자 권한으로 주문 상세(items 등)를 직접 가져오지 못한다. 현재 `useParams` 의
-    orderId 만 사용한다.
+    orderId 만 사용한다. **→ RESOLVED (005, 커밋 `8b48eb5`)**: `GET /seller/orders/:orderId`(items 포함,
+    `getApprovedSeller` + items sellerId 소유 검증 — 미존재 404·비소유 403) + `api.order.getSellerDetail`
+    추가, ship 헤더에 주문 상태·금액 표시.
   - (2) **BE-GAP: 주문→송장 조회 엔드포인트 부재** (Medium) — `GET /shipments?orderId` 또는 주문 응답에
     shipment 포함이 없어, 이미 발송된 주문에 ship 페이지 재진입 시 기존 shipment id 를 복구하지 못한다.
     현재는 송장 등록 직후 세션 state 의 shipment id 로 상태변경·추적이 동작한다(세션 내 완결). 재진입 시
-    재등록 시도는 백엔드가 400(주문이 preparing 아님)으로 거부한다.
+    재등록 시도는 백엔드가 400(주문이 preparing 아님)으로 거부한다. **→ RESOLVED (005, 커밋 `8b48eb5`)**:
+    `GET /shipments?orderId=`(권한 3축 `_assertCanViewOrder`, 미존재 null) + `findByOrderId`(최신 1건) +
+    `api.shipping.getByOrder` 추가, ship 진입 시 `useQuery` 로 기존 송장 복구(세션 `useState` 대체).
   - (3) **응답 스키마 미정의 → view 타입 한시** (Low) — 주문·배송 응답은 백엔드가 Prisma 엔티티를 반환하고
     OpenAPI 응답 content 가 미주석이다(87 ops 중 typed 2xx content 36건 — 001 GAP-001-01 연속). 따라서
     003 타입드 client 대신 `@doa/shared-types` 전이형 view 타입(금전 string)을 한시 정의했다.
@@ -50,9 +54,11 @@
 - **영향**: 낮음~중간 — Phase 1 핵심 목표(판매자 주문 확인·송장 등록(발송)·배송 상태 전이·추적 조회 화면)는
   console typecheck 0·build 14 라우트 PASS 로 달성. BE-GAP (1)·(2)는 재진입 복구·주문 상세 UX 제약을 낳으나
   세션 내 완결로 핵심 이행 흐름은 동작한다. view 타입 한시·Phase 2 미구현은 점진 보강 대상이다.
-- **상태**: OPEN — BE-GAP 2건은 백엔드 후속 차수 위임(Medium), 응답 스키마 보강은 001/003 GAP 연속(Low),
-  Phase 2 프론트 보강은 후속 위임(Low). coverage-gap.md 와 동일 사안. 003 GAP-003-01(console 마이그레이션·
-  응답 스키마 품질)의 연속이며, 004 는 그중 판매자 주문·배송 도메인 화면을 view 타입 + facade 로 **구현**한다.
+- **상태**: 부분 RESOLVED — **BE-GAP 2건 (1)·(2)(판매자 주문 상세·주문→송장 조회)는 005(커밋 `8b48eb5`)로
+  RESOLVED**(위 (1)·(2) 항목 참조). 잔여 OPEN — (3) 응답 스키마 보강은 001/003 GAP 연속(Low), (4) Phase 2
+  프론트 보강(rhf/낙관적/페이지네이션·e2e)은 후속 위임(Low, 005 GAP-005-01 로 이월). coverage-gap.md 와 동일
+  사안. 003 GAP-003-01(console 마이그레이션·응답 스키마 품질)의 연속이며, 004 는 그중 판매자 주문·배송 도메인
+  화면을 view 타입 + facade 로 **구현**, 005 는 그 BE-GAP 2건을 **해소**한다.
 
 ---
 
