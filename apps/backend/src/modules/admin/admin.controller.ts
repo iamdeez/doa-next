@@ -8,11 +8,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiOkResponse } from '@nestjs/swagger';
 import { AdminGuard } from '../../shared/auth/admin.guard';
 import { JwtAuthGuard } from '../../shared/auth/jwt-auth.guard';
 import { CurrentUser } from '../../shared/auth/current-user.decorator';
 import { AuthenticatedUser } from '../../shared/auth/jwt.strategy';
 import { AdminService } from './admin.service';
+import { SellerProfileResponse } from '../seller/dto/seller-response.dto';
+import { AdminAuditLogResponse, AdminUserListResponse } from './dto/admin-response.dto';
 
 // ── 관리자 운영 API (운영 조회/조치) ─────────────────────────────────
 
@@ -23,6 +26,7 @@ export class AdminController {
 
   /** GET /admin/sellers/pending — 승인 대기 판매자 목록 */
   @Get('sellers/pending')
+  @ApiOkResponse({ type: [SellerProfileResponse] })
   async listPendingSellers() {
     return this.adminService.listPendingSellers();
   }
@@ -30,6 +34,7 @@ export class AdminController {
   /** POST /admin/sellers/:id/approve — 판매자 승인 (seller 도메인 재사용) + 감사 로그 기록 */
   @Post('sellers/:id/approve')
   @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: SellerProfileResponse })
   async approveSeller(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') sellerId: string,
@@ -39,6 +44,7 @@ export class AdminController {
 
   /** GET /admin/users — 사용자 목록 (cursor 페이지네이션) */
   @Get('users')
+  @ApiOkResponse({ type: AdminUserListResponse })
   async listUsers(
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
@@ -51,6 +57,7 @@ export class AdminController {
 
   /** GET /admin/audit-logs — 관리자 조치 감사 로그 (최신순, 013) */
   @Get('audit-logs')
+  @ApiOkResponse({ type: [AdminAuditLogResponse] })
   async listAuditLogs(@Query('limit') limit?: string) {
     return this.adminService.listAuditLogs(
       limit ? parseInt(limit, 10) : undefined,

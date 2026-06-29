@@ -7,6 +7,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiOkResponse } from '@nestjs/swagger';
 import { AuthenticatedUser } from '../../shared/auth/jwt.strategy';
 import { CurrentUser } from '../../shared/auth/current-user.decorator';
 import { JwtAuthGuard } from '../../shared/auth/jwt-auth.guard';
@@ -14,24 +15,33 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
+import {
+  AuthProfileResponse,
+  LoginResponse,
+  RefreshResponse,
+  RegisterResponse,
+} from './dto/auth-response.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @ApiOkResponse({ type: RegisterResponse })
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: LoginResponse })
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: RefreshResponse })
   async refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto);
   }
@@ -46,6 +56,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @ApiOkResponse({ type: AuthProfileResponse })
   async me(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.getProfile(user.userId);
   }

@@ -1522,13 +1522,33 @@ export interface components {
             email: string;
             password: string;
         };
+        RegisterResponse: {
+            id: string;
+            email: string;
+        };
         LoginDto: {
             /** Format: email */
             email: string;
             password: string;
         };
+        LoginResponse: {
+            /** @description JWT access token */
+            accessToken: string;
+            /** @description JWT refresh token */
+            refreshToken: string;
+        };
         RefreshDto: {
             refreshToken: string;
+        };
+        RefreshResponse: {
+            /** @description JWT access token (재발급) */
+            accessToken: string;
+        };
+        AuthProfileResponse: {
+            id: string;
+            email: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         UserProfileResponse: {
             id: string;
@@ -1718,6 +1738,28 @@ export interface components {
             page: number;
             size: number;
         };
+        NotificationResponse: {
+            id: string;
+            /** @description cross-schema plain String — users.users.id (P-001) */
+            userId: string;
+            /** @enum {string} */
+            type: "ORDER_PLACED" | "ORDER_SHIPPED" | "SETTLEMENT_CREATED" | "REVIEW_RECEIVED";
+            title: string;
+            body: string;
+            isRead: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        NotificationListResponse: {
+            items: components["schemas"]["NotificationResponse"][];
+            total: number;
+            page: number;
+            size: number;
+        };
+        MarkAllReadResponse: {
+            /** @description 읽음 처리된 건수 */
+            updated: number;
+        };
         PresignDto: {
             /** @enum {string} */
             purpose: "PRODUCT_IMAGE" | "REVIEW_IMAGE" | "PROFILE";
@@ -1746,6 +1788,22 @@ export interface components {
             /** @description 노출 종료 (ISO 8601, null=무제한) */
             endsAt?: string;
         };
+        BannerResponse: {
+            id: string;
+            title: string;
+            imageUrl: string;
+            linkUrl?: string | null;
+            /** @enum {string} */
+            position: "MAIN_TOP" | "MAIN_MIDDLE" | "MAIN_BOTTOM" | "SIDEBAR";
+            sortOrder: number;
+            isActive: boolean;
+            /** Format: date-time */
+            startsAt?: string | null;
+            /** Format: date-time */
+            endsAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
         UpdateBannerDto: {
             title?: string;
             imageUrl?: string;
@@ -1756,6 +1814,64 @@ export interface components {
             isActive?: boolean;
             startsAt?: string | null;
             endsAt?: string | null;
+        };
+        PlatformOverviewResponse: {
+            totalOrders: number;
+            completedOrders: number;
+            /**
+             * @description 금전 — 완료 주문 총 매출 (P-005)
+             * @example 1000000.00
+             */
+            totalSales: string;
+            totalUsers: number;
+            totalSellers: number;
+        };
+        SellerStatsResponse: {
+            /**
+             * @description 금전 — 판매자 매출 합계 (P-005)
+             * @example 500000.00
+             */
+            salesTotal: string;
+            orderCount: number;
+        };
+        SellerProfileResponse: {
+            id: string;
+            /** @description cross-schema plain String — users.users.id (P-001) */
+            userId: string;
+            businessName: string;
+            businessNumber: string;
+            representativeName: string;
+            contactPhone?: string | null;
+            businessAddress?: string | null;
+            /** @enum {string} */
+            status: "PENDING" | "APPROVED" | "REJECTED";
+            rejectReason?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminUserResponse: {
+            id: string;
+            email: string;
+            name?: string | null;
+            phone?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminUserListResponse: {
+            items: components["schemas"]["AdminUserResponse"][];
+            nextCursor?: string | null;
+        };
+        AdminAuditLogResponse: {
+            id: string;
+            /** @description 조치 수행 관리자 userId (P-001) */
+            adminId: string;
+            /** @description 조치 종류 (예: SELLER_APPROVE) */
+            action: string;
+            /** @description 대상 엔티티 종류 (예: SELLER, BANNER, USER) */
+            targetType: string;
+            targetId: string;
+            /** Format: date-time */
+            createdAt: string;
         };
     };
     responses: never;
@@ -2672,12 +2788,12 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["RegisterResponse"];
                 };
             };
         };
@@ -2700,7 +2816,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["LoginResponse"];
                 };
             };
         };
@@ -2723,7 +2839,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["RefreshResponse"];
                 };
             };
         };
@@ -2763,7 +2879,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["AuthProfileResponse"];
                 };
             };
         };
@@ -3307,7 +3423,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["NotificationListResponse"];
                 };
             };
         };
@@ -3325,7 +3441,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MarkAllReadResponse"];
+                };
             };
         };
     };
@@ -3344,7 +3462,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["NotificationResponse"];
+                };
             };
         };
     };
@@ -3445,7 +3565,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["BannerResponse"][];
+                };
             };
         };
     };
@@ -3462,11 +3584,13 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["BannerResponse"];
+                };
             };
         };
     };
@@ -3508,7 +3632,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["BannerResponse"];
+                };
             };
         };
     };
@@ -3525,7 +3651,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["BannerResponse"][];
+                };
             };
         };
     };
@@ -3543,7 +3671,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PlatformOverviewResponse"];
                 };
             };
         };
@@ -3562,7 +3690,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SellerStatsResponse"];
                 };
             };
         };
@@ -3581,7 +3709,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": components["schemas"]["SellerProfileResponse"][];
                 };
             };
         };
@@ -3602,7 +3730,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SellerProfileResponse"];
                 };
             };
         };
@@ -3623,7 +3751,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminUserListResponse"];
+                };
             };
         };
     };
@@ -3642,7 +3772,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminAuditLogResponse"][];
+                };
             };
         };
     };

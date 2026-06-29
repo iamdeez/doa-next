@@ -1292,12 +1292,12 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/RegisterResponse"
                 }
               }
             }
@@ -1328,7 +1328,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/LoginResponse"
                 }
               }
             }
@@ -1359,7 +1359,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/RefreshResponse"
                 }
               }
             }
@@ -1404,7 +1404,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/AuthProfileResponse"
                 }
               }
             }
@@ -2221,7 +2221,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/NotificationListResponse"
                 }
               }
             }
@@ -2239,7 +2239,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkAllReadResponse"
+                }
+              }
+            }
           }
         },
         "summary": "PATCH /notifications/read-all — 본인 전체 읽음",
@@ -2263,7 +2270,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationResponse"
+                }
+              }
+            }
           }
         },
         "summary": "PATCH /notifications/:id/read — 본인 알림 읽음 처리",
@@ -2399,8 +2413,15 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BannerResponse"
+                }
+              }
+            }
           }
         },
         "summary": "POST /admin/banners — 배너 생성",
@@ -2413,7 +2434,17 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BannerResponse"
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "GET /admin/banners — 전체 목록 (관리자)",
@@ -2447,7 +2478,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BannerResponse"
+                }
+              }
+            }
           }
         },
         "summary": "PATCH /admin/banners/:id — 배너 부분 수정",
@@ -2484,7 +2522,17 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BannerResponse"
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "GET /banners — 활성 + 노출기간 내 배너만 sortOrder 순 (공개, 인증 불필요)",
@@ -2503,7 +2551,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PlatformOverviewResponse"
                 }
               }
             }
@@ -2525,7 +2573,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/SellerStatsResponse"
                 }
               }
             }
@@ -2549,7 +2597,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "$ref": "#/components/schemas/SellerProfileResponse"
                   }
                 }
               }
@@ -2581,7 +2629,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/SellerProfileResponse"
                 }
               }
             }
@@ -2616,7 +2664,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserListResponse"
+                }
+              }
+            }
           }
         },
         "summary": "GET /admin/users — 사용자 목록 (cursor 페이지네이션)",
@@ -2640,7 +2695,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminAuditLogResponse"
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "GET /admin/audit-logs — 관리자 조치 감사 로그 (최신순, 013)",
@@ -3621,6 +3686,21 @@
           "password"
         ]
       },
+      "RegisterResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email"
+        ]
+      },
       "LoginDto": {
         "type": "object",
         "properties": {
@@ -3637,6 +3717,23 @@
           "password"
         ]
       },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT access token"
+          },
+          "refreshToken": {
+            "type": "string",
+            "description": "JWT refresh token"
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken"
+        ]
+      },
       "RefreshDto": {
         "type": "object",
         "properties": {
@@ -3646,6 +3743,38 @@
         },
         "required": [
           "refreshToken"
+        ]
+      },
+      "RefreshResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT access token (재발급)"
+          }
+        },
+        "required": [
+          "accessToken"
+        ]
+      },
+      "AuthProfileResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "createdAt"
         ]
       },
       "UserProfileResponse": {
@@ -4232,6 +4361,87 @@
           "size"
         ]
       },
+      "NotificationResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string",
+            "description": "cross-schema plain String — users.users.id (P-001)"
+          },
+          "type": {
+            "enum": [
+              "ORDER_PLACED",
+              "ORDER_SHIPPED",
+              "SETTLEMENT_CREATED",
+              "REVIEW_RECEIVED"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "isRead": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "type",
+          "title",
+          "body",
+          "isRead",
+          "createdAt"
+        ]
+      },
+      "NotificationListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationResponse"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "size": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size"
+        ]
+      },
+      "MarkAllReadResponse": {
+        "type": "object",
+        "properties": {
+          "updated": {
+            "type": "number",
+            "description": "읽음 처리된 건수"
+          }
+        },
+        "required": [
+          "updated"
+        ]
+      },
       "PresignDto": {
         "type": "object",
         "properties": {
@@ -4310,6 +4520,62 @@
           "imageUrl"
         ]
       },
+      "BannerResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "linkUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "position": {
+            "enum": [
+              "MAIN_TOP",
+              "MAIN_MIDDLE",
+              "MAIN_BOTTOM",
+              "SIDEBAR"
+            ],
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "startsAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "imageUrl",
+          "position",
+          "sortOrder",
+          "isActive",
+          "createdAt"
+        ]
+      },
       "UpdateBannerDto": {
         "type": "object",
         "properties": {
@@ -4347,6 +4613,187 @@
             "nullable": true
           }
         }
+      },
+      "PlatformOverviewResponse": {
+        "type": "object",
+        "properties": {
+          "totalOrders": {
+            "type": "number"
+          },
+          "completedOrders": {
+            "type": "number"
+          },
+          "totalSales": {
+            "type": "string",
+            "example": "1000000.00",
+            "description": "금전 — 완료 주문 총 매출 (P-005)"
+          },
+          "totalUsers": {
+            "type": "number"
+          },
+          "totalSellers": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "totalOrders",
+          "completedOrders",
+          "totalSales",
+          "totalUsers",
+          "totalSellers"
+        ]
+      },
+      "SellerStatsResponse": {
+        "type": "object",
+        "properties": {
+          "salesTotal": {
+            "type": "string",
+            "example": "500000.00",
+            "description": "금전 — 판매자 매출 합계 (P-005)"
+          },
+          "orderCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "salesTotal",
+          "orderCount"
+        ]
+      },
+      "SellerProfileResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string",
+            "description": "cross-schema plain String — users.users.id (P-001)"
+          },
+          "businessName": {
+            "type": "string"
+          },
+          "businessNumber": {
+            "type": "string"
+          },
+          "representativeName": {
+            "type": "string"
+          },
+          "contactPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "businessAddress": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED"
+            ],
+            "type": "string"
+          },
+          "rejectReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "businessName",
+          "businessNumber",
+          "representativeName",
+          "status",
+          "createdAt"
+        ]
+      },
+      "AdminUserResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "createdAt"
+        ]
+      },
+      "AdminUserListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminUserResponse"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "AdminAuditLogResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "adminId": {
+            "type": "string",
+            "description": "조치 수행 관리자 userId (P-001)"
+          },
+          "action": {
+            "type": "string",
+            "description": "조치 종류 (예: SELLER_APPROVE)"
+          },
+          "targetType": {
+            "type": "string",
+            "description": "대상 엔티티 종류 (예: SELLER, BANNER, USER)"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "adminId",
+          "action",
+          "targetType",
+          "targetId",
+          "createdAt"
+        ]
       }
     }
   }

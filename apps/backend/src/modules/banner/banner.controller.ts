@@ -10,11 +10,13 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiOkResponse } from '@nestjs/swagger';
 import { AdminGuard } from '../../shared/auth/admin.guard';
 import { JwtAuthGuard } from '../../shared/auth/jwt-auth.guard';
 import { BannerService, UpdateBannerInput } from './banner.service';
 import { CreateBannerDto } from './dto/create-banner.dto';
 import { UpdateBannerDto } from './dto/update-banner.dto';
+import { BannerResponse } from './dto/banner-response.dto';
 
 // ── 관리자 배너 관리 API ─────────────────────────────────────────────
 
@@ -26,6 +28,7 @@ export class AdminBannerController {
   /** POST /admin/banners — 배너 생성 */
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiOkResponse({ type: BannerResponse })
   async create(@Body() dto: CreateBannerDto) {
     return this.bannerService.create({
       title: dto.title,
@@ -41,6 +44,7 @@ export class AdminBannerController {
 
   /** PATCH /admin/banners/:id — 배너 부분 수정 */
   @Patch(':id')
+  @ApiOkResponse({ type: BannerResponse })
   async update(@Param('id') id: string, @Body() dto: UpdateBannerDto) {
     // 전달된 키만 반영 (PATCH 시맨틱) — undefined 필드는 전파하지 않는다.
     const input: UpdateBannerInput = {};
@@ -68,6 +72,7 @@ export class AdminBannerController {
 
   /** GET /admin/banners — 전체 목록 (관리자) */
   @Get()
+  @ApiOkResponse({ type: [BannerResponse] })
   async listAll() {
     return this.bannerService.listAll();
   }
@@ -81,6 +86,7 @@ export class BannerController {
 
   /** GET /banners — 활성 + 노출기간 내 배너만 sortOrder 순 (공개, 인증 불필요) */
   @Get()
+  @ApiOkResponse({ type: [BannerResponse] })
   async listPublic() {
     return this.bannerService.listPublic();
   }
