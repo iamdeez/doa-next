@@ -1,0 +1,22 @@
+{
+  "radius": {
+    "control": { "$value": "{radius.md}",   "$type": "dimension" },
+    "card":    { "$value": "{radius.lg}",   "$type": "dimension" },
+    "modal":   { "$value": "{radius.xl}",   "$type": "dimension" },
+    "pill":    { "$value": "{radius.full}", "$type": "dimension" }
+  },
+  "space": {
+    "gutter":  { "$value": "{space.4}", "$type": "dimension" },
+    "section": { "$value": "{space.8}", "$type": "dimension" },
+    "inset":   { "$value": "{space.3}", "$type": "dimension" }
+  },
+  "text": {
+    "body":    { "$value": "{font.size.sm}",   "$type": "dimension" },
+    "heading": { "$value": "{font.size.xl}",   "$type": "dimension" },
+    "display": { "$value": "{font.size.3xl}",  "$type": "dimension" }
+  },
+  "motion": {
+    "control": { "$value": "{duration.fast}", "$type": "duration" },
+    "overlay": { "$value": "{duration.base}", "$type": "duration" }
+  }
+}

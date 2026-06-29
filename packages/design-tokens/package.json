@@ -1,0 +1,14 @@
+{
+  "name": "@doa/design-tokens",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "DOA Market 디자인 토큰 SSOT (W3C DTCG) → Style Dictionary → 웹(CSS vars/Tailwind preset)·Flutter(Dart ThemeData).",
+  "main": "build/web/tailwind-preset.cjs",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "style-dictionary": "^4.4.0"
+  }
+}

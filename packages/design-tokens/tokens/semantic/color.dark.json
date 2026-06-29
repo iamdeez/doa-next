@@ -1,0 +1,48 @@
+{
+  "bg": {
+    "canvas":  { "$value": "{color.neutral.950}", "$type": "color" },
+    "surface": { "$value": "{color.neutral.900}", "$type": "color" },
+    "raised":  { "$value": "{color.neutral.800}", "$type": "color" },
+    "muted":   { "$value": "{color.neutral.800}", "$type": "color" },
+    "inverse": { "$value": "{color.neutral.50}",  "$type": "color" }
+  },
+  "fg": {
+    "default":  { "$value": "{color.neutral.50}",  "$type": "color" },
+    "muted":    { "$value": "{color.neutral.400}", "$type": "color" },
+    "subtle":   { "$value": "{color.neutral.500}", "$type": "color" },
+    "onAccent": { "$value": "{color.neutral.0}",   "$type": "color" },
+    "inverse":  { "$value": "{color.neutral.900}", "$type": "color" }
+  },
+  "border": {
+    "default": { "$value": "{color.neutral.700}", "$type": "color" },
+    "subtle":  { "$value": "{color.neutral.800}", "$type": "color" },
+    "strong":  { "$value": "{color.neutral.600}", "$type": "color" },
+    "focus":   { "$value": "{color.brand.400}",   "$type": "color" }
+  },
+  "accent": {
+    "solid": { "$value": "{color.brand.500}", "$type": "color" },
+    "hover": { "$value": "{color.brand.400}", "$type": "color" },
+    "soft":  { "$value": "{color.brand.900}", "$type": "color" },
+    "fg":    { "$value": "{color.brand.300}", "$type": "color" }
+  },
+  "success": {
+    "solid": { "$value": "{color.green.500}", "$type": "color" },
+    "soft":  { "$value": "{color.green.900}", "$type": "color" },
+    "fg":    { "$value": "{color.green.100}", "$type": "color" }
+  },
+  "warning": {
+    "solid": { "$value": "{color.amber.500}", "$type": "color" },
+    "soft":  { "$value": "{color.amber.900}", "$type": "color" },
+    "fg":    { "$value": "{color.amber.100}", "$type": "color" }
+  },
+  "danger": {
+    "solid": { "$value": "{color.red.500}", "$type": "color" },
+    "soft":  { "$value": "{color.red.900}", "$type": "color" },
+    "fg":    { "$value": "{color.red.100}", "$type": "color" }
+  },
+  "info": {
+    "solid": { "$value": "{color.blue.500}", "$type": "color" },
+    "soft":  { "$value": "{color.blue.900}", "$type": "color" },
+    "fg":    { "$value": "{color.blue.100}", "$type": "color" }
+  }
+}
