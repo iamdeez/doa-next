@@ -141,20 +141,31 @@ export class ShippingService {
     const shipment = await this.shippingRepository.findById(shipmentId);
     if (!shipment) throw new NotFoundException('Shipment not found');
 
-    const ownership = await this.orderService.getOrderOwnership(shipment.orderId);
+    await this._assertCanViewOrder(userId, shipment.orderId);
+    return this.shippingRepository.findTracking(shipmentId);
+  }
 
+  /**
+   * 주문 기준 송장 조회 — 권한 3축(구매자 본인 또는 판매자). 송장 미존재 시 null.
+   * ship 화면 재진입 시 기존 송장 상태 복구용 (GET /shipments?orderId=).
+   */
+  async getByOrder(userId: string, orderId: string): Promise<Shipment | null> {
+    await this._assertCanViewOrder(userId, orderId);
+    return this.shippingRepository.findByOrderId(orderId);
+  }
+
+  /** 권한 3축 검증 — 구매자 본인 또는 해당 주문 판매자. 미허가 시 403. */
+  private async _assertCanViewOrder(userId: string, orderId: string): Promise<void> {
+    const ownership = await this.orderService.getOrderOwnership(orderId);
     let authorized = ownership.userId === userId; // 구매자 본인
     if (!authorized) {
       // 판매자 축 — 미승인/미등록 판매자는 getApprovedSeller 가 throw 하므로 무시
       const sellerId = await this._resolveSellerId(userId);
       authorized = sellerId !== null && ownership.sellerIds.includes(sellerId);
     }
-
     if (!authorized) {
-      throw new ForbiddenException('Not allowed to view this shipment tracking');
+      throw new ForbiddenException('Not allowed to view this shipment');
     }
-
-    return this.shippingRepository.findTracking(shipmentId);
   }
 
   /** APPROVED 판매자면 sellerId, 아니면 null (권한 판정 보조). */

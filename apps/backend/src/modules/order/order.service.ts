@@ -239,6 +239,20 @@ export class OrderService {
     return this.orderRepository.listBySeller(seller.id);
   }
 
+  /**
+   * 판매자 단건 주문 상세(items 포함) — 본인 소유(items 중 sellerId 일치) 검증.
+   * 미존재 404, 비소유 403. ship 화면 등 판매자 주문 컨텍스트 표시용.
+   */
+  async getSellerOrderDetail(userId: string, orderId: string): Promise<OrderWithDetails> {
+    const seller = await this.sellerService.getApprovedSeller(userId);
+    const order = await this.orderRepository.findById(orderId);
+    if (!order) throw new NotFoundException('Order not found');
+    if (!order.items.some((i) => i.sellerId === seller.id)) {
+      throw new ForbiddenException('Not your order');
+    }
+    return order;
+  }
+
   /** 판매자 주문 확인 — pending → preparing */
   async confirmBySeller(userId: string, orderId: string): Promise<void> {
     const seller = await this.sellerService.getApprovedSeller(userId);

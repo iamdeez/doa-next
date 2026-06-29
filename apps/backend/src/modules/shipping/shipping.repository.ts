@@ -26,6 +26,14 @@ export class ShippingRepository {
     return this.prisma.tx.shipment.findUnique({ where: { id } });
   }
 
+  /** 주문 기준 최신 송장 1건 (현재 주문당 1건). 미존재 시 null. */
+  async findByOrderId(orderId: string): Promise<Shipment | null> {
+    return this.prisma.tx.shipment.findFirst({
+      where: { orderId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async updateShipment(
     id: string,
     data: {

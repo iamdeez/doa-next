@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../shared/auth/jwt-auth.guard';
@@ -33,6 +34,15 @@ export class ShippingController {
       carrier: dto.carrier,
       trackingNumber: dto.trackingNumber,
     });
+  }
+
+  /** GET /shipments?orderId= — 주문 기준 송장 조회 (구매자/판매자). 미존재 시 null. */
+  @Get()
+  async getByOrder(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('orderId') orderId: string,
+  ) {
+    return this.shippingService.getByOrder(user.userId, orderId);
   }
 
   /** PATCH /shipments/:id/status — 배송 상태 업데이트 (판매자) */

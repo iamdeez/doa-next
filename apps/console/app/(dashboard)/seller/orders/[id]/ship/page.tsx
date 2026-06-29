@@ -11,31 +11,55 @@ import {
   Loading,
   PageHeader,
 } from '@doa/ui';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { SHIPMENT_STATUS_LABEL } from '@/lib/order';
+import {
+  formatKRW,
+  ORDER_STATUS_LABEL,
+  ORDER_STATUS_TONE,
+  SHIPMENT_STATUS_LABEL,
+} from '@/lib/order';
 
-/** 송장 등록 + 배송 상태 관리 — POST /shipments, PATCH /shipments/:id/status, GET tracking. */
+/** 송장 등록 + 배송 상태 관리 — 진입 시 기존 송장 복구(GET /shipments?orderId=). */
 export default function ShipPage() {
   const { id: orderId } = useParams<{ id: string }>();
   const { isSeller } = useAuth();
-  const [shipment, setShipment] = useState<Shipment | null>(null);
+  const qc = useQueryClient();
   const [carrier, setCarrier] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
 
+  const orderQuery = useQuery({
+    queryKey: ['seller', 'order', orderId],
+    queryFn: () => api.order.getSellerDetail(orderId),
+    enabled: isSeller,
+  });
+
+  const shipmentQuery = useQuery({
+    queryKey: ['shipment', 'byOrder', orderId],
+    queryFn: () => api.shipping.getByOrder(orderId),
+    enabled: isSeller,
+  });
+  const shipment = shipmentQuery.data ?? null;
+
   const create = useMutation({
     mutationFn: () => api.shipping.create({ orderId, carrier, trackingNumber }),
-    onSuccess: (s) => setShipment(s),
+    onSuccess: (s) => {
+      qc.setQueryData(['shipment', 'byOrder', orderId], s);
+      void qc.invalidateQueries({ queryKey: ['seller', 'orders'] });
+    },
   });
 
   const updateStatus = useMutation({
     mutationFn: (status: ShipmentStatus) =>
       api.shipping.updateStatus(shipment!.id, { status }),
-    onSuccess: (s) => setShipment(s),
+    onSuccess: (s) => {
+      qc.setQueryData(['shipment', 'byOrder', orderId], s);
+      void qc.invalidateQueries({ queryKey: ['shipment', s.id, 'tracking'] });
+    },
   });
 
   const tracking = useQuery({
@@ -44,18 +68,28 @@ export default function ShipPage() {
     enabled: !!shipment,
   });
 
-  if (!isSeller) {
-    return <ErrorText>판매자 전용 화면입니다.</ErrorText>;
-  }
+  if (!isSeller) return <ErrorText>판매자 전용 화면입니다.</ErrorText>;
+
+  const order = orderQuery.data;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="송장 등록 · 배송"
         subtitle={
-          <>
+          <span className="flex items-center gap-2">
             주문 <span className="font-mono text-xs">{orderId.slice(0, 12)}…</span>
-          </>
+            {order && (
+              <Badge tone={ORDER_STATUS_TONE[order.status]}>
+                {ORDER_STATUS_LABEL[order.status]}
+              </Badge>
+            )}
+            {order && (
+              <span className="tabular-nums text-muted-foreground">
+                {formatKRW(order.totalAmount)}
+              </span>
+            )}
+          </span>
         }
         actions={
           <Button variant="ghost" size="sm" asChild>
@@ -64,7 +98,9 @@ export default function ShipPage() {
         }
       />
 
-      {!shipment ? (
+      {shipmentQuery.isLoading && <Loading label="배송 정보 확인 중…" />}
+
+      {!shipmentQuery.isLoading && !shipment && (
         <Card className="max-w-md space-y-4">
           <div className="text-sm font-medium text-foreground">송장 정보</div>
           <Input
@@ -94,72 +130,102 @@ export default function ShipPage() {
             </ErrorText>
           )}
           <p className="text-xs text-subtle-foreground">
-            송장을 등록하면 주문이 <b>배송중</b>으로 전이됩니다. 이미 발송된 주문은 등록할 수 없습니다.
+            송장을 등록하면 주문이 <b>배송중</b>으로 전이됩니다.
           </p>
         </Card>
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-foreground">배송 상태</div>
-              <Badge tone={shipment.status === 'delivered' ? 'success' : 'info'}>
-                {SHIPMENT_STATUS_LABEL[shipment.status]}
-              </Badge>
-            </div>
-            <dl className="space-y-1 text-sm">
-              <Row label="택배사" value={shipment.carrier} />
-              <Row label="운송장" value={shipment.trackingNumber} />
-            </dl>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => updateStatus.mutate('in_transit')}
-                disabled={updateStatus.isPending || shipment.status === 'delivered'}
-              >
-                배송중 처리
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => updateStatus.mutate('delivered')}
-                disabled={updateStatus.isPending || shipment.status === 'delivered'}
-              >
-                배송완료 처리
-              </Button>
-            </div>
-            {updateStatus.error && (
-              <ErrorText>
-                {updateStatus.error instanceof ApiError ? updateStatus.error.message : '상태 변경 실패'}
-              </ErrorText>
-            )}
-          </Card>
+      )}
 
-          <Card className="space-y-3">
-            <div className="text-sm font-medium text-foreground">추적 이력</div>
-            {tracking.isLoading && <Loading />}
-            {tracking.data && tracking.data.length === 0 && (
-              <p className="text-sm text-muted-foreground">이력이 없습니다.</p>
-            )}
-            <ol className="space-y-3">
-              {tracking.data?.map((t) => (
-                <li key={t.id} className="flex gap-3 text-sm">
-                  <span className="mt-1 h-2 w-2 shrink-0 rounded-pill bg-accent" />
-                  <div>
-                    <div className="font-medium text-foreground">
-                      {SHIPMENT_STATUS_LABEL[t.status]}
-                    </div>
-                    <div className="text-muted-foreground">{t.description}</div>
-                    <div className="text-xs text-subtle-foreground">
-                      {new Date(t.occurredAt).toLocaleString('ko-KR')}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </Card>
+      {shipment && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ShipmentPanel
+            shipment={shipment}
+            onUpdate={(s) => updateStatus.mutate(s)}
+            pending={updateStatus.isPending}
+            error={updateStatus.error}
+          />
+          <TrackingPanel
+            loading={tracking.isLoading}
+            items={tracking.data ?? []}
+          />
         </div>
       )}
     </div>
+  );
+}
+
+function ShipmentPanel({
+  shipment,
+  onUpdate,
+  pending,
+  error,
+}: {
+  shipment: Shipment;
+  onUpdate: (status: ShipmentStatus) => void;
+  pending: boolean;
+  error: unknown;
+}) {
+  const delivered = shipment.status === 'delivered';
+  return (
+    <Card className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-medium text-foreground">배송 상태</div>
+        <Badge tone={delivered ? 'success' : 'info'}>
+          {SHIPMENT_STATUS_LABEL[shipment.status]}
+        </Badge>
+      </div>
+      <dl className="space-y-1 text-sm">
+        <Row label="택배사" value={shipment.carrier} />
+        <Row label="운송장" value={shipment.trackingNumber} />
+      </dl>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => onUpdate('in_transit')}
+          disabled={pending || delivered}
+        >
+          배송중 처리
+        </Button>
+        <Button size="sm" onClick={() => onUpdate('delivered')} disabled={pending || delivered}>
+          배송완료 처리
+        </Button>
+      </div>
+      {error != null && (
+        <ErrorText>{error instanceof ApiError ? error.message : '상태 변경 실패'}</ErrorText>
+      )}
+    </Card>
+  );
+}
+
+function TrackingPanel({
+  loading,
+  items,
+}: {
+  loading: boolean;
+  items: { id: string; status: ShipmentStatus; description: string; occurredAt: string }[];
+}) {
+  return (
+    <Card className="space-y-3">
+      <div className="text-sm font-medium text-foreground">추적 이력</div>
+      {loading && <Loading />}
+      {!loading && items.length === 0 && (
+        <p className="text-sm text-muted-foreground">이력이 없습니다.</p>
+      )}
+      <ol className="space-y-3">
+        {items.map((t) => (
+          <li key={t.id} className="flex gap-3 text-sm">
+            <span className="mt-1 h-2 w-2 shrink-0 rounded-pill bg-accent" />
+            <div>
+              <div className="font-medium text-foreground">{SHIPMENT_STATUS_LABEL[t.status]}</div>
+              <div className="text-muted-foreground">{t.description}</div>
+              <div className="text-xs text-subtle-foreground">
+                {new Date(t.occurredAt).toLocaleString('ko-KR')}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </Card>
   );
 }
 

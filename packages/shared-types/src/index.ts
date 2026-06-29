@@ -274,6 +274,20 @@ export interface SellerOrder {
   createdAt: string;
 }
 
+export interface OrderItemView {
+  id: string;
+  productId: string;
+  sellerId: string;
+  variantId: string;
+  unitPrice: string;
+  quantity: number;
+}
+
+/** GET /seller/orders/:orderId — 판매자 단건 주문 상세(items 포함). */
+export interface SellerOrderDetail extends SellerOrder {
+  items: OrderItemView[];
+}
+
 export type ShipmentStatus = 'preparing' | 'shipped' | 'in_transit' | 'delivered';
 
 export interface Shipment {

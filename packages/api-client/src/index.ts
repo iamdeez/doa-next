@@ -16,6 +16,7 @@ import type {
   RecentView,
   RegisterRequest,
   SellerOrder,
+  SellerOrderDetail,
   SellerProfile,
   SellerRegisterRequest,
   SellerStatusResponse,
@@ -138,6 +139,9 @@ export function createApiClient(options: HttpClientOptions) {
     order: {
       /** GET /seller/orders — 판매자 본인 주문 목록(최신순). */
       listSeller: () => http.get<SellerOrder[]>('/seller/orders'),
+      /** GET /seller/orders/:id — 판매자 단건 주문 상세(items 포함). */
+      getSellerDetail: (orderId: string) =>
+        http.get<SellerOrderDetail>(`/seller/orders/${orderId}`),
       /** POST /seller/orders/:id/confirm — 주문 확인(confirmed → preparing). */
       confirm: (orderId: string) =>
         http.post<void>(`/seller/orders/${orderId}/confirm`),
@@ -146,6 +150,9 @@ export function createApiClient(options: HttpClientOptions) {
     shipping: {
       /** POST /shipments — 송장 등록(preparing → shipped). 생성된 Shipment 반환. */
       create: (body: CreateShipmentRequest) => http.post<Shipment>('/shipments', body),
+      /** GET /shipments?orderId= — 주문 기준 송장 조회(없으면 null). 재진입 복구용. */
+      getByOrder: (orderId: string) =>
+        http.get<Shipment | null>('/shipments', { query: { orderId } }),
       /** PATCH /shipments/:id/status — 배송 상태 업데이트(delivered 시 주문도 delivered). */
       updateStatus: (id: string, body: UpdateShipmentStatusRequest) =>
         http.patch<Shipment>(`/shipments/${id}/status`, body),

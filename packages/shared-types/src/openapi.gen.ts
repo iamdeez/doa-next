@@ -90,6 +90,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/seller/orders/{orderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /seller/orders/:orderId — 판매자 단건 주문 상세 (items 포함, 본인 소유) */
+        get: operations["SellerOrderController_getSellerOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/seller/orders/{orderId}/confirm": {
         parameters: {
             query?: never;
@@ -776,7 +793,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** GET /shipments?orderId= — 주문 기준 송장 조회 (구매자/판매자). 미존재 시 null. */
+        get: operations["ShippingController_getByOrder"];
         put?: never;
         /** POST /shipments — 송장 등록 (APPROVED 판매자) */
         post: operations["ShippingController_createShipment"];
@@ -1528,6 +1546,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    SellerOrderController_getSellerOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2602,6 +2641,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>[];
+                };
+            };
+        };
+    };
+    ShippingController_getByOrder: {
+        parameters: {
+            query: {
+                orderId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };

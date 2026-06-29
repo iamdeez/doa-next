@@ -157,6 +157,37 @@
         ]
       }
     },
+    "/seller/orders/{orderId}": {
+      "get": {
+        "operationId": "SellerOrderController_getSellerOrder",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "summary": "GET /seller/orders/:orderId — 판매자 단건 주문 상세 (items 포함, 본인 소유)",
+        "tags": [
+          "SellerOrder"
+        ]
+      }
+    },
     "/seller/orders/{orderId}/confirm": {
       "post": {
         "operationId": "SellerOrderController_confirm",
@@ -1639,6 +1670,35 @@
           }
         },
         "summary": "POST /shipments — 송장 등록 (APPROVED 판매자)",
+        "tags": [
+          "Shipping"
+        ]
+      },
+      "get": {
+        "operationId": "ShippingController_getByOrder",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "summary": "GET /shipments?orderId= — 주문 기준 송장 조회 (구매자/판매자). 미존재 시 null.",
         "tags": [
           "Shipping"
         ]

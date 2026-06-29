@@ -23,6 +23,15 @@ export class SellerOrderController {
     return this.orderService.listSellerOrders(user.userId);
   }
 
+  /** GET /seller/orders/:orderId — 판매자 단건 주문 상세 (items 포함, 본인 소유) */
+  @Get(':orderId')
+  async getSellerOrder(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.orderService.getSellerOrderDetail(user.userId, orderId);
+  }
+
   /** POST /seller/orders/:orderId/confirm — 판매자 주문 확인 (pending → preparing) */
   @Post(':orderId/confirm')
   @HttpCode(HttpStatus.NO_CONTENT)

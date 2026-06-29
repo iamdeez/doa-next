@@ -22,6 +22,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -613,6 +614,37 @@ describe('OrderService', () => {
       expect(mockSellerService.getApprovedSeller).toHaveBeenCalledWith(FIXED_USER_ID);
       expect(mockOrderRepository.listBySeller).toHaveBeenCalledWith(FIXED_SELLER_ID);
       expect(Array.isArray(result)).toBe(true);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // getSellerOrderDetail — 판매자 단건 주문 상세 (갭 보강)
+  // ─────────────────────────────────────────────
+  describe('getSellerOrderDetail — 판매자 주문 상세', () => {
+    it('when_owner_seller_then_returns_order', async () => {
+      mockSellerService.getApprovedSeller.mockResolvedValue({ id: FIXED_SELLER_ID, userId: FIXED_USER_ID });
+      mockOrderRepository.findById.mockResolvedValue(FIXED_ORDER_PENDING);
+
+      const result = await service.getSellerOrderDetail(FIXED_USER_ID, FIXED_ORDER_ID);
+      expect(result).toBe(FIXED_ORDER_PENDING);
+    });
+
+    it('when_not_owner_then_ForbiddenException', async () => {
+      mockSellerService.getApprovedSeller.mockResolvedValue({ id: FIXED_OTHER_SELLER_ID, userId: FIXED_USER_ID });
+      mockOrderRepository.findById.mockResolvedValue(FIXED_ORDER_PENDING);
+
+      await expect(
+        service.getSellerOrderDetail(FIXED_USER_ID, FIXED_ORDER_ID),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('when_missing_then_NotFoundException', async () => {
+      mockSellerService.getApprovedSeller.mockResolvedValue({ id: FIXED_SELLER_ID, userId: FIXED_USER_ID });
+      mockOrderRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.getSellerOrderDetail(FIXED_USER_ID, 'missing'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

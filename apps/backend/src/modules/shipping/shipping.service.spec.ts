@@ -28,6 +28,7 @@ import { SellerService } from '../seller/seller.service';
 const mockShippingRepository = {
   createShipment: jest.fn(),
   findById: jest.fn(),
+  findByOrderId: jest.fn(),
   updateShipment: jest.fn(),
   appendTracking: jest.fn(),
   findTracking: jest.fn(),
@@ -310,6 +311,51 @@ describe('ShippingService', () => {
       await expect(
         service.getTracking('customer-1', 'ship-x'),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getByOrder (주문 기준 송장 조회 — 갭 보강)', () => {
+    it('when_seller_then_returns_shipment_or_null', async () => {
+      mockOrderService.getOrderOwnership.mockResolvedValue({
+        userId: 'customer-1',
+        sellerIds: ['seller-1'],
+      });
+      mockSellerService.getApprovedSeller.mockResolvedValue({
+        id: 'seller-1',
+        userId: 'seller-user-1',
+      });
+      mockShippingRepository.findByOrderId.mockResolvedValue(SHIPMENT);
+
+      const result = await service.getByOrder('seller-user-1', 'order-1');
+
+      expect(mockShippingRepository.findByOrderId).toHaveBeenCalledWith('order-1');
+      expect(result).toBe(SHIPMENT);
+    });
+
+    it('when_buyer_and_no_shipment_then_null', async () => {
+      mockOrderService.getOrderOwnership.mockResolvedValue({
+        userId: 'customer-1',
+        sellerIds: ['seller-1'],
+      });
+      mockShippingRepository.findByOrderId.mockResolvedValue(null);
+
+      const result = await service.getByOrder('customer-1', 'order-1');
+      expect(result).toBeNull();
+    });
+
+    it('when_stranger_then_ForbiddenException', async () => {
+      mockOrderService.getOrderOwnership.mockResolvedValue({
+        userId: 'customer-1',
+        sellerIds: ['seller-1'],
+      });
+      mockSellerService.getApprovedSeller.mockRejectedValue(
+        new ForbiddenException('Seller is not approved'),
+      );
+
+      await expect(service.getByOrder('stranger-1', 'order-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockShippingRepository.findByOrderId).not.toHaveBeenCalled();
     });
   });
 });
