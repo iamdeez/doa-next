@@ -20,8 +20,8 @@
 > 001~007 완료. `apps/backend`(NestJS **18모듈 전부 실구현** — auth·user·seller·product·inventory·cart·order·payment·coupon·review·shipping·settlement·search·notification·file·banner·stats·admin),
 > Prisma **29테이블**·JWT·AdminGuard·ALS 트랜잭션·pg-boss·쿠폰(서버할인·이중사용방지)·리뷰(orderItem)·배송(송장·추적·상태전이)·정산(Decimal 집계)·검색·알림·파일(R2 Port+stub)·배너·통계·운영·Docker·CI 실재.
 > 단위/통합 테스트: unit 253 PASS(25 suites) + e2e/static 84 PASS(16 suites). (005~007 경량 구현 후 정식 검증·문서화 + 008~011 후속 보강 완료.)
-> **후속 보강 완료**: 008 정산 멱등성(SEC-FIND-005-01), 009 알림 이벤트 연동(GAP-006-01), 010 쿠폰 할인값 검증(SEC-001), 011 파일 보안(SEC-FIND-006-01/02·GAP-006-02) 전부 해결.
-> **잔여 알려진 제약**: admin audit log 부재(GAP-007-01 Low). 정산 기간 `completedAt` 미사용(GAP-005-02 Low). 마이그레이션 드리프트(GAP-005-03, accepted). 상세 §6.
+> **후속 보강 완료**: 008 정산 멱등성(SEC-FIND-005-01), 009 알림 이벤트 연동(GAP-006-01), 010 쿠폰 할인값 검증(SEC-001), 011 파일 보안(SEC-FIND-006-01/02·GAP-006-02), 012 정산 completedAt 기준(GAP-005-02) 전부 해결.
+> **잔여 알려진 제약**: admin audit log 부재(GAP-007-01 Low). 마이그레이션 드리프트(GAP-005-03, accepted). 상세 §6.
 
 ---
 

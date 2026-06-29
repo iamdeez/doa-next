@@ -35,7 +35,7 @@
 - **내용**: 정산 집계 기간 필터가 주문 `createdAt` 기준이다(`where:{createdAt:{gte:periodStart, lte:periodEnd}}`). 주문 *완료* 시각(전용 `completedAt` 컬럼)이 부재하여 단순화한 결과로, 주문 생성 시점과 완료(정산 대상) 시점이 다를 경우 정확한 정산 주기 산정에 한계가 있다.
 - **수정 방향**: 주문에 `completedAt` 컬럼 추가 후 정산 집계를 완료 시각 기준으로 전환 검토.
 - **영향**: 낮음~중간 — 정산 주기 경계 케이스의 집계 정확도. 보안 영향 없음.
-- **상태**: ACKNOWLEDGED — 정확 정산주기 필요 시 후속 spec.
+- **상태**: **RESOLVED (012-settlement-completed-at, 커밋 35791d6)** — `createdAt → completedAt` 전환 + `Order.completedAt` 컬럼 추가 + completed 전이 양 경로(구매자 `complete`·시스템 `autoConfirmDelivered`)에서 completedAt 기록. 정산 집계가 구매 확정 시각 기준으로 기간을 산정한다. 해결 검증 상세는 `docs/specs/v1.0.0/012-settlement-completed-at/` 참조(잔여: 필터 전환 직접 통합 테스트 부재 GAP-012-01, Low).
 
 ## GAP-005-03
 

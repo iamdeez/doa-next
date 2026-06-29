@@ -1,3 +1,26 @@
+## [012-settlement-completed-at] 구현 완료
+
+> base `3735377`(011 정식 SDD 문서 커밋 — 코드는 011 완료 `88de003` 와 동일) → `35791d6`(012 완료). 변경 라인은 `git diff 3735377 35791d6 -- apps/backend`로 재생성. 마이그레이션 012(`Order.completedAt` nullable 컬럼 추가 — 비파괴 `ADD COLUMN`, migrate dev 적용).
+
+**변경 파일**:
+- `apps/backend/prisma/schema.prisma`: `Order` 모델에 nullable `completedAt DateTime?`(주석: 구매 확정 일시 — 정산 집계 기준 시각, 012 GAP-005-02) 추가. `deliveredAt`(005)와 동형.
+- `apps/backend/prisma/migrations/20260629115624_012_order_completed_at/migration.sql`(신규): `ALTER TABLE "orders"."orders" ADD COLUMN "completedAt" TIMESTAMP(3)`. 비파괴 nullable 추가.
+- `apps/backend/src/modules/order/order.repository.ts`: `updateStatus(orderId, status, extra?)` 의 `extra` 타입에 `completedAt?: Date` 추가(`data:{ status, ...extra }`, 선택 속성 확장) + `findCompletedItemsBySellerInPeriod` 의 기간 필터를 `createdAt:{ gte, lte }` → `completedAt:{ gte, lte }` 로 전환(시그니처·반환 형태 불변).
+- `apps/backend/src/modules/order/order.service.ts`: `complete`(delivered→completed) 가 `updateStatus(orderId, completed, { completedAt: new Date() })`, `autoConfirmDelivered(now)` 가 각 주문 `updateStatus(order.id, completed, { completedAt: now })` 로 구매 확정 시각 기록(양 completed 전이 경로).
+- `apps/backend/src/modules/order/order.service.spec.ts`: `complete`·`autoConfirmDelivered` 테스트의 `updateStatus` 단언을 completedAt 포함하도록 갱신(신규 it() 0건 — 단언만 강화).
+
+**검증**: tsc 0 / unit 25 suites·253 PASS(011 대비 변화 없음 — 신규 단위 추가 없이 complete·autoConfirm 단언만 갱신, 회귀 0) / e2e+static 16 suites·84 PASS(P95 e2e 1회 콜드스타트 플레이키 관측 → 재실행 84 PASS 확인). 마이그레이션 012(`completedAt` nullable 컬럼 추가, 비파괴, `migrate status` up-to-date).
+
+**해결**: **GAP-005-02(정산 기간 필터가 주문 createdAt 기준, Low~Medium) 완전 해결** — `Order.completedAt` 컬럼 추가 + completed 전이 2경로(구매자 `complete`·시스템 `autoConfirmDelivered`)에서 completedAt 기록 + 정산 집계 필터 `createdAt → completedAt` 전환. 정산 집계가 주문 생성 시각이 아닌 구매 확정 시각 기준으로 기간을 산정하여, 주문 생성·완료 시점이 다를 때의 정산 주기 귀속 오차를 제거. 005-shipping-settlement/gaps.md 의 GAP-005-02 를 RESOLVED(012)로 갱신.
+
+**후속 작업 시 주의사항**:
+- **과거 completed 주문 completedAt=NULL(GAP-012-01, Low)**: 본 변경 이전 completed 로 전이된 주문은 `completedAt=NULL`(비파괴 추가, 백필 없음)이라 `completedAt` 기준 정산 필터에서 제외된다. 그린필드(실 운영 데이터 없음)라 영향이 없으나, 운영 데이터 이행 시 과거 completed 주문의 completedAt 백필(`order_events` 의 toStatus=completed 행 createdAt 기준)이 필요하다(범위 외).
+- **정산 필터 전환 직접 테스트 부재(GAP-012-01, Low)**: `findCompletedItemsBySellerInPeriod` 의 completedAt 기준 필터를 직접 단언하는 자동 테스트가 없다(`settlement.service.spec` 이 OrderService mock — 필터가 mock 경계 아래). `order.service.spec` 의 completedAt 기록 단언(SC-001·002)으로 간접 커버하며, 필터 전환은 정적 코드 검증(SC-003). 실 PostgreSQL 정산 집계 통합 테스트 후속 권고(coverage-gap.md).
+- **completed 전이 경로 전수 = 2개**: `OrderStatus.completed` 전이는 `complete`(구매자)·`autoConfirmDelivered`(시스템) 2경로뿐이며 양쪽 모두 completedAt 을 기록한다. 향후 completed 전이 경로를 추가하면 반드시 `completedAt` 기록을 포함해야 정산 필터 정합이 유지된다(SC-001·002 단언으로 회귀 탐지).
+- **updateStatus extra 확장은 비파괴**: `extra` 가 선택 인자·선택 속성이라 completedAt 미전달 전이(`confirmBySeller`·`cancel`·`markShipped`·`markConfirmed`)는 불변. `markDelivered` 는 005 기존 `{ deliveredAt }` 전달. 향후 전이 메타 추가 시 동일 extra 패턴 사용.
+
+---
+
 ## [011-file-security] 구현 완료
 
 > base `cfa787c`(010 SDD 문서 커밋) → `88de003`(011 완료). 변경 라인은 `git diff cfa787c 88de003 -- apps/backend`로 재생성. 마이그레이션 없음(스키마 변경 0 — FileAsset 기존 status/size 컬럼 재사용).
