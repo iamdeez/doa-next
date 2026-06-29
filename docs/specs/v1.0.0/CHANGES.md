@@ -11,7 +11,7 @@
 - `apps/backend/src/modules/order/order.repository.ts`: findCompletedItemsBySellerInPeriod 추가.
 - `apps/backend/test/static/{cross-schema,schema-decimal}.spec.ts`: 신규 repo 경계·정산 금전 필드 반영.
 
-**검증**: tsc 0 / unit 189 PASS(신규 21, 회귀 0) / static 47 PASS / AppModule 부팅 health e2e 3 PASS.
+**검증**: tsc 0 / unit 189 PASS(신규 17 = shipping 11 + settlement 6, 회귀 0) / static 47 PASS / AppModule 부팅 health e2e 3 PASS.
 
 **후속 작업 시 주의사항**:
 - **마이그레이션 드리프트**: 005 마이그레이션 SQL에 004(coupons·user_coupons·reviews) 테이블 생성이 함께 포함됨. 004 모델이 schema.prisma엔 있었으나 별도 마이그레이션이 없던 기존 드리프트가 `migrate dev`에서 캡처된 것. DB 정상 동기화 상태이나 백엔드 전체 완료 후 마이그레이션 히스토리 정리 검토 권장.
