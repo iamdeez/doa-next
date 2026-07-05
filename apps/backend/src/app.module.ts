@@ -31,6 +31,7 @@ import { SecurityModule } from './shared/security/security.module';
     AppConfigModule,
     LoggerModule.forRoot({
       pinoHttp: {
+        redact: ['req.headers.authorization', 'req.headers.cookie'],
         transport:
           process.env['NODE_ENV'] !== 'production'
             ? { target: 'pino-pretty' }

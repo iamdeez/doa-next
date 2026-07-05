@@ -65,33 +65,45 @@ describe('AdminController', () => {
   });
 
   // ─────────────────────────────────────────────
-  // SC-001~005 보조: query 파라미터 배선 확인
+  // SC-001~006 보조: query DTO 배선 확인 [§F 마이그레이션, v1.1.0/019 spec]
   // ─────────────────────────────────────────────
-  describe('listPendingSellers — query 파라미터 배선', () => {
-    it('when_query_params_present_then_forwarded_to_service(SC-001~005 보조)', async () => {
+  describe('listPendingSellers — query 파라미터 배선 (v1.1.0/019 spec, §F positional→DTO 마이그레이션)', () => {
+    /**
+     * [§F 마이그레이션, v1.1.0/019 spec] `listPendingSellers` 가 개별 `@Query()` 4개 +
+     * 수동 `parseInt` 대신 `AdminSellerListQueryDto` 단일 객체 인자를 받도록 전환되었다
+     * (tasks.md Test Authoring Contract canonical). 단위 테스트는 `ValidationPipe`
+     * (transform)가 개입하지 않으므로 DTO 에 이미 변환된 값(`limit: number`)을 직접
+     * 전달한다(research.md "엣지 케이스 및 한계" — 단위 테스트 ValidationPipe 미개입).
+     * 실제 파싱·거부(400)는 통합 테스트(`test/list-query-dto.e2e-spec.ts`, SC-001~006)가 검증한다.
+     */
+    it('test_SC001_006_019_query_dto_present_then_forwarded_to_service(SC-001~006 보조)', async () => {
       /**
-       * (v1.1.0/017 spec) 보조:
-       * status·cursor·limit·q 쿼리 파라미터가 AdminService.listSellers 호출 인자로 그대로 전달된다.
-       * limit 은 컨트롤러에서 문자열 → 숫자로 파싱(parseInt)됨 — 클램프 자체는 서비스 책임.
+       * status·cursor·limit·q 필드가 AdminService.listSellers 호출 인자로 그대로 전달된다.
+       * limit 은 number(10) 직접 전달 — production 이 parseInt 를 제거했으므로 문자열 '10' 아님.
        */
       const envelope = { items: [], nextCursor: null };
       mockAdminService.listSellers.mockResolvedValue(envelope);
 
-      const result = await controller.listPendingSellers('APPROVED', 'cursor-1', '10', '마켓');
+      const result = await controller.listPendingSellers({
+        status: 'APPROVED',
+        cursor: 'cursor-1',
+        limit: 10,
+        q: '마켓',
+      });
 
       expect(mockAdminService.listSellers).toHaveBeenCalledWith('APPROVED', 'cursor-1', 10, '마켓');
       expect(result).toBe(envelope);
     });
 
-    it('when_query_params_absent_then_undefined_forwarded(SC-003 보조)', async () => {
+    it('test_SC006_019_query_dto_empty_then_undefined_forwarded(SC-006 보조)', async () => {
       /**
-       * (v1.1.0/017 spec) 보조 — SC-003 하위호환:
-       * 쿼리 파라미터가 전혀 없으면 undefined 그대로 서비스에 전달(서비스가 PENDING 기본값 결정).
+       * SC-006 하위호환: DTO 필드가 전부 미지정(`{}`)이면 undefined 그대로
+       * 서비스에 전달(서비스가 PENDING 기본값 결정).
        */
       const envelope = { items: [], nextCursor: null };
       mockAdminService.listSellers.mockResolvedValue(envelope);
 
-      await controller.listPendingSellers(undefined, undefined, undefined, undefined);
+      await controller.listPendingSellers({});
 
       expect(mockAdminService.listSellers).toHaveBeenCalledWith(
         undefined,

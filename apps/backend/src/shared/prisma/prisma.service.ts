@@ -14,6 +14,7 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly als = new AsyncLocalStorage<TxContext>();
+  private rootClient?: TxClient;
 
   async onModuleInit(): Promise<void> {
     await this.$connect();
@@ -23,9 +24,21 @@ export class PrismaService
     await this.$disconnect();
   }
 
-  /** ALS 활성 시 트랜잭션 클라이언트, 비활성 시 루트 클라이언트 반환 */
+  /**
+   * DI 컨테이너가 실제로 주입하는 Proxy(delegate 보유)를 등록한다.
+   * Prisma 생성자 Proxy 의 get-trap 내부에서 `this` 가 원본 타깃으로 바인딩되어
+   * delegate 를 상실하므로(getter 내부 this 문제), 팩토리가 자기 자신을 등록해
+   * 비-트랜잭션 경로에서 delegate 보유 Proxy 를 되돌려준다.
+   */
+  registerRootClient(client: PrismaClient): void {
+    this.rootClient = client as unknown as TxClient;
+  }
+
+  /** ALS 활성 시 트랜잭션 클라이언트, 비활성 시 루트 클라이언트(미주입 시 this) 반환 */
   get tx(): TxClient {
-    return this.als.getStore()?.client ?? (this as unknown as TxClient);
+    return (
+      this.als.getStore()?.client ?? this.rootClient ?? (this as unknown as TxClient)
+    );
   }
 
   /**

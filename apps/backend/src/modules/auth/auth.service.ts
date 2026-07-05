@@ -295,6 +295,7 @@ export class AuthService {
   async findEmail(phone: string): Promise<FindEmailResult> {
     const user = await this.authRepository.findFirstUserByPhone(phone);
     if (!user) {
+      this.securityAuditLogger.findEmailNotFound(phone);
       throw new NotFoundException('No account found for this phone number');
     }
     this.securityAuditLogger.findEmailAccessed(phone, user.email);

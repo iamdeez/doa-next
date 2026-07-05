@@ -44,4 +44,16 @@ export class SecurityAuditLogger {
       /* best-effort: 로깅 실패가 원 흐름 차단 금지 */
     }
   }
+
+  /** find-email 미등록 전화번호 조회(404) 이벤트 — enumeration 탐지(FR-008/009). */
+  findEmailNotFound(phone: string): void {
+    try {
+      this.logger.warn(
+        { event: 'find_email_not_found', phone: maskPhone(phone) },
+        'find-email not found',
+      );
+    } catch {
+      /* best-effort: 로깅 실패가 원 흐름 차단 금지 */
+    }
+  }
 }

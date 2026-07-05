@@ -80,11 +80,16 @@ const mockPrismaService = {
   tx: {},
 };
 
-// v1.1.0/018 SC-014·016·017: best-effort 감사 로거 — 호출 여부·인자만 spy.
+// v1.1.0/018 SC-014·016·017 + v1.1.0/019 SC-011·013: best-effort 감사 로거 —
+// 호출 여부·인자만 spy. [§F 마이그레이션, v1.1.0/019 spec] findEmailNotFound 추가
+// — 미추가 시 test_find_email_unregistered_404(§F 기존 테스트)가 production
+// `this.securityAuditLogger.findEmailNotFound(phone)` 호출에서 `undefined()`
+// TypeError 로 회귀한다(tasks.md Test Authoring Contract §F 항목).
 const mockSecurityAuditLogger = {
   otpVerificationFailed: jest.fn(),
   rateLimitExceeded: jest.fn(),
   findEmailAccessed: jest.fn(),
+  findEmailNotFound: jest.fn(),
 };
 
 const mockJwtService = {
@@ -649,10 +654,37 @@ describe('AuthService', () => {
       /**
        * SC-023 Error Case (v1.1.0/013 spec):
        * 미등록 전화번호로 findEmail → NotFoundException (HTTP 404).
+       *
+       * [§F 마이그레이션, v1.1.0/019 spec]: T003 배선으로 이 경로에서
+       * `securityAuditLogger.findEmailNotFound(phone)` 이 throw 이전에 호출된다
+       * (mockSecurityAuditLogger.findEmailNotFound 미등록 시 TypeError 회귀 —
+       * 상세 검증은 아래 SC-011 참조).
        */
       mockAuthRepository.findFirstUserByPhone.mockResolvedValue(null);
 
       await expect(service.findEmail('01099999999')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // SC-011 (v1.1.0/019 spec, FR-008): 미등록 phone → findEmailNotFound 호출 + 404
+  // ─────────────────────────────────────────────
+  describe('SC-011 (v1.1.0/019 spec): find-email 미등록 전화번호 → findEmailNotFound 1회 호출 + NotFoundException (FR-008)', () => {
+    it('test_SC011_019_find_email_unregistered_calls_findEmailNotFound_and_throws_404', async () => {
+      /**
+       * SC-011 (v1.1.0/019 spec): 존재하지 않는 전화번호로 findEmail 호출 시
+       * `SecurityAuditLogger.findEmailNotFound(phone)` 이 1회 호출되고, 이어서
+       * `NotFoundException`(404)이 그대로 반환됨을 검증한다
+       * (T003 — `throw NotFoundException` 이전에 삽입, 시그니처·반환 타입 불변).
+       */
+      mockAuthRepository.findFirstUserByPhone.mockResolvedValue(null);
+
+      await expect(service.findEmail('01099999999')).rejects.toThrow(NotFoundException);
+
+      expect(mockSecurityAuditLogger.findEmailNotFound).toHaveBeenCalledTimes(1);
+      expect(mockSecurityAuditLogger.findEmailNotFound).toHaveBeenCalledWith('01099999999');
+      // 성공 경로 감사 이벤트(findEmailAccessed)는 호출되지 않아야 한다(회귀 방지)
+      expect(mockSecurityAuditLogger.findEmailAccessed).not.toHaveBeenCalled();
     });
   });
 
@@ -911,6 +943,60 @@ describe('AuthService', () => {
       const result = await serviceWithRealLogger.findEmail(FIXED_USER.phone!);
 
       expect(result.email).toBe('te**@example.com');
+      expect(mockPinoLogger.warn).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ── SC-013 (v1.1.0/019 spec, FR-010): find-email 미등록 경로 — 로거 예외 발생해도 원 응답 불변 ──
+  describe('SC-013 (v1.1.0/019 spec): find-email 미등록 경로 — PinoLogger.warn throw 해도 404 응답 불변 (FR-010, best-effort)', () => {
+    /**
+     * (PATCH-018-01 준수) `SecurityAuditLogger` 는 전 메서드 best-effort(내부
+     * try/catch)이므로 `SecurityAuditLogger` 전체를 mock 하여 강제 throw 시키지
+     * 않는다 — production 에서 도달 불가능한 분기를 전제하는 오류다(GAP-018-02
+     * 정정 방식과 동일 원칙, PATCH-03). 실제 `SecurityAuditLogger` 인스턴스 +
+     * `PinoLogger.warn` throw mock 조합으로 재현한다(SC-017 018 스타일 재사용).
+     */
+    let realSecurityAuditLogger: SecurityAuditLogger;
+    let mockPinoLogger: { warn: jest.Mock; setContext: jest.Mock };
+    let serviceWithRealLogger: AuthService;
+
+    beforeEach(async () => {
+      mockPinoLogger = {
+        warn: jest.fn(() => {
+          throw new Error('pino transport failure (SC-013 019 unit)');
+        }),
+        setContext: jest.fn(),
+      };
+      realSecurityAuditLogger = new SecurityAuditLogger(mockPinoLogger as unknown as PinoLogger);
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          AuthService,
+          { provide: AuthRepository, useValue: mockAuthRepository },
+          { provide: JwtService, useValue: mockJwtService },
+          { provide: ConfigService, useValue: mockConfigService },
+          { provide: MailerPort, useValue: mockMailerPort },
+          { provide: PrismaService, useValue: mockPrismaService },
+          { provide: SecurityAuditLogger, useValue: realSecurityAuditLogger },
+        ],
+      }).compile();
+
+      serviceWithRealLogger = module.get<AuthService>(AuthService);
+    });
+
+    it('test_SC013_019_find_email_unregistered_unaffected_by_logger_throw', async () => {
+      /**
+       * SC-013 (v1.1.0/019 spec): `findEmailNotFound` 내부에서 `PinoLogger.warn` 이
+       * 예외를 던지더라도(실제 `SecurityAuditLogger` 인스턴스 경유) `findEmail` 은
+       * 정상적으로 `NotFoundException`(404)을 반환해야 한다(차단 없음, FR-010).
+       */
+      mockAuthRepository.findFirstUserByPhone.mockResolvedValue(null);
+
+      await expect(
+        serviceWithRealLogger.findEmail('01099999999'),
+      ).rejects.toThrow(NotFoundException);
+
+      // 로거 wiring 자체는 실제 호출되었음(로깅 시도가 실제로 일어났는지)
       expect(mockPinoLogger.warn).toHaveBeenCalledTimes(1);
     });
   });

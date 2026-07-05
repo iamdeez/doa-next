@@ -1,12 +1,13 @@
 /**
  * SecurityAuditLogger 단위 테스트 — [env:unit]
  *
- * 대상 SC: SC-014·015·016·017·019 (v1.1.0/018 spec)
+ * 대상 SC: SC-014·015·016·017·019 (v1.1.0/018 spec) + SC-012·013 (v1.1.0/019 spec)
  * 검증 방법: Jest mock `PinoLogger`(nestjs-pino, 주입) — `warn` spy.
  *
  * Test Authoring Contract canonical (tasks.md):
- *   - `SecurityAuditLogger` 메서드 3종: `otpVerificationFailed(email)`,
- *     `rateLimitExceeded(endpoint, ip)`, `findEmailAccessed(phone, resultEmail)`.
+ *   - `SecurityAuditLogger` 메서드 4종: `otpVerificationFailed(email)`,
+ *     `rateLimitExceeded(endpoint, ip)`, `findEmailAccessed(phone, resultEmail)`,
+ *     `findEmailNotFound(phone)`(v1.1.0/019 spec 신규 — FR-008/009/010).
  *   - 전부 best-effort(내부 warn 이 throw 해도 메서드는 throw 하지 않음).
  *   - 단위 테스트 주입 mock: `{ warn: jest.fn(), setContext: jest.fn() }`.
  *
@@ -179,6 +180,48 @@ describe('SecurityAuditLogger', () => {
       expect(serialized).not.toContain(resultEmail);
       // 원본 전체 자릿수 연속 노출(비마스킹) 여부 정규식 검증
       expect(new RegExp(phone).test(serialized)).toBe(false);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // SC-012 (v1.1.0/019 spec): findEmailNotFound — WARN 1건 + phone 마스킹 (FR-008·FR-009)
+  // ─────────────────────────────────────────────
+  describe('SC-012 (v1.1.0/019 spec): findEmailNotFound — WARN 1건 + phone 마스킹 (FR-008·FR-009)', () => {
+    it('test_SC012_019_find_email_not_found_logs_warn_with_masked_phone', () => {
+      /**
+       * SC-012 (v1.1.0/019 spec): find-email 미등록 전화번호(404) 감사 이벤트가
+       * WARN 수준 로그로 1건 기록되고, 로그에 원본 전화번호가 아닌 `maskPhone`
+       * 마스킹 결과만 포함됨을 검증한다.
+       */
+      const phone = '01000000000';
+      const expectedMaskedPhone = maskPhone(phone);
+
+      service.findEmailNotFound(phone);
+
+      expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+      const [payload] = mockLogger.warn.mock.calls[0] as [Record<string, unknown>, string];
+      expect(payload['event']).toBe('find_email_not_found');
+      expect(payload['phone']).toBe(expectedMaskedPhone);
+      // 원본(비마스킹) 전화번호가 payload 에 없어야 함
+      expect(JSON.stringify(payload)).not.toContain(phone);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // SC-013 (v1.1.0/019 spec): findEmailNotFound — 로거 예외 발생해도 메서드는 throw 하지 않음 (best-effort, FR-010)
+  // ─────────────────────────────────────────────
+  describe('SC-013 (v1.1.0/019 spec): findEmailNotFound — 로거 throw 해도 메서드는 throw 하지 않음 (best-effort, FR-010)', () => {
+    it('test_SC013_019_find_email_not_found_swallows_logger_throw', () => {
+      /**
+       * SC-013 (v1.1.0/019 spec): 감사 로그 기록 로직(`PinoLogger.warn`)이 예외를
+       * 던지도록 mock 하더라도 `findEmailNotFound` 자체는 throw 하지 않아야 한다
+       * (best-effort, FR-010 — 내부 try/catch).
+       */
+      mockLogger.warn.mockImplementation(() => {
+        throw new Error('pino transport failure');
+      });
+
+      expect(() => service.findEmailNotFound('01099999999')).not.toThrow();
     });
   });
 });

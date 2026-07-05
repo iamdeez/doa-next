@@ -89,6 +89,8 @@ model Seller {
   createdAt           DateTime     @default(now())
   user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  /// 관리자 판매자 목록 cursor 페이지네이션 커버 — WHERE status + ORDER BY createdAt DESC, id DESC 완전 커버 (FR-007, ADR-003, 019)
+  @@index([status, createdAt(sort: Desc), id(sort: Desc)])
   @@map("sellers")
   @@schema("users")
 }
@@ -225,6 +227,8 @@ model Product {
   inventories Inventory[]
 
   @@index([status, createdAt(sort: Desc), id(sort: Desc)])
+  /// 판매자 상품 목록 cursor 페이지네이션 커버 — WHERE sellerId + ORDER BY createdAt DESC, id DESC 완전 커버 (FR-006, ADR-003, 019)
+  @@index([sellerId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("products")
   @@schema("products")
 }

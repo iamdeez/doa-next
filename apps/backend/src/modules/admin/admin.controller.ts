@@ -9,12 +9,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { AdminGuard } from '../../shared/auth/admin.guard';
 import { JwtAuthGuard } from '../../shared/auth/jwt-auth.guard';
 import { CurrentUser } from '../../shared/auth/current-user.decorator';
 import { AuthenticatedUser } from '../../shared/auth/jwt.strategy';
+import { ListQueryDto } from '../../shared/dto/list-query.dto';
 import { AdminService } from './admin.service';
 import { SellerProfileResponse } from '../seller/dto/seller-response.dto';
+import { AdminSellerListQueryDto } from './dto/admin-seller-list-query.dto';
 import {
   AdminAuditLogResponse,
   AdminSellerListResponse,
@@ -33,18 +36,14 @@ export class AdminController {
    * status 미지정 시 PENDING(하위 호환). cursor·limit·q(businessName 부분 일치) 지원.
    */
   @Get('sellers/pending')
+  @SkipThrottle()
   @ApiOkResponse({ type: AdminSellerListResponse })
-  async listPendingSellers(
-    @Query('status') status?: string,
-    @Query('cursor') cursor?: string,
-    @Query('limit') limit?: string,
-    @Query('q') q?: string,
-  ) {
+  async listPendingSellers(@Query() query: AdminSellerListQueryDto) {
     return this.adminService.listSellers(
-      status,
-      cursor,
-      limit ? parseInt(limit, 10) : undefined,
-      q,
+      query.status,
+      query.cursor,
+      query.limit,
+      query.q,
     );
   }
 
@@ -61,23 +60,17 @@ export class AdminController {
 
   /** GET /admin/users — 사용자 목록 (cursor 페이지네이션) */
   @Get('users')
+  @SkipThrottle()
   @ApiOkResponse({ type: AdminUserListResponse })
-  async listUsers(
-    @Query('cursor') cursor?: string,
-    @Query('limit') limit?: string,
-  ) {
-    return this.adminService.listUsers(
-      cursor,
-      limit ? parseInt(limit, 10) : undefined,
-    );
+  async listUsers(@Query() query: ListQueryDto) {
+    return this.adminService.listUsers(query.cursor, query.limit);
   }
 
   /** GET /admin/audit-logs — 관리자 조치 감사 로그 (최신순, 013) */
   @Get('audit-logs')
+  @SkipThrottle()
   @ApiOkResponse({ type: [AdminAuditLogResponse] })
-  async listAuditLogs(@Query('limit') limit?: string) {
-    return this.adminService.listAuditLogs(
-      limit ? parseInt(limit, 10) : undefined,
-    );
+  async listAuditLogs(@Query() query: ListQueryDto) {
+    return this.adminService.listAuditLogs(query.limit);
   }
 }

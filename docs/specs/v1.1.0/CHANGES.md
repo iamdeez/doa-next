@@ -1,3 +1,123 @@
+## [019-security-quality-followups] 구현 완료
+
+> v1.1.0 의 열아홉 번째 차수 — 017-seller-admin-read-apis·018-auth-security-hardening 의
+> Security/Performance Agent 감사가 Low~Informational(비블로킹)로 남긴 코드 수준 후속 부채
+> 4건(SEC-017-01·GAP-017-03·SEC-018-02·SEC-018-03, `context.md §6` 누적분)을 해소한다.
+> (1) 트랙 1 — 관리자·판매자 cursor 목록 4개 엔드포인트(`GET /admin/sellers/pending`·
+> `/admin/users`·`/admin/audit-logs`·`/sellers/me/products`)의 개별 `@Query()`+수동 `parseInt`
+> 를 신규 `ListQueryDto`/`AdminSellerListQueryDto`(class-validator) 로 전환(FR-001~005) —
+> `limit=abc` 등 비정수 입력이 500(NaN passthrough) 대신 400 을 반환. (2) 트랙 2 — `Product`에
+> `sellerId` 선두, `Seller`에 `status` 선두 복합 인덱스 신규 추가(FR-006/007, 마이그레이션
+> `20260705162400_add_product_seller_list_indexes`). (3) 트랙 3 — `AuthService.findEmail` 404
+> 분기(미등록 전화번호)에 신규 `SecurityAuditLogger.findEmailNotFound`(마스킹+best-effort)
+> 배선(FR-008~010) — enumeration 시도 탐지 사각 해소. (4) 트랙 4 — `app.module.ts` pino
+> `redact: ['req.headers.authorization', 'req.headers.cookie']` 추가(FR-011/012) — HTTP 로그의
+> JWT/쿠키 평문 노출 차단.
+>
+> **트랙 5(사용자 승인 옵션 A, 2026-07-05 17:12) — 사전 결함 통합 fix**: 5b 1차 검증이
+> base commit(`62d14f9`) 대비 git diff 0 으로 확정한 003-commerce/018 기원 사전 결함 2건을
+> 019 로 편입 수정(신규 FR/SC 없음, 기존 SC unblock 목적):
+> - **GAP-019-03(P0, RESOLVED)**: `PrismaService.tx` getter 가 Prisma 6.19.3 클라이언트 생성자
+>   Proxy 의 get-trap 으로 인해 비-트랜잭션 경로에서 `this` 가 delegate 미보유 원본 타깃에
+>   바인딩되어 `tx.<model>` 접근이 전부 `undefined` 를 반환(SC-006 `admin/audit-logs` 500).
+>   `prisma.service.ts`(`rootClient` 필드+`registerRootClient`)·`prisma.module.ts`(provider
+>   shorthand→`useFactory` 자기참조 주입)로 해소. getter 시그니처·반환형·`runInTransaction`·
+>   14개 repository 호출부 전부 불변.
+> - **GAP-019-04(Medium, GET 목록분 RESOLVED)**: 018 이 도입한 전역 rate limit(20/60s)이 GET
+>   목록/조회 라우트에 예외 없이 적용되어 100회 순차요청 perf e2e(`list-p95`·`products`)가
+>   구조적으로 429 를 받던 회귀. GET 읽기/목록 8핸들러(`product.controller.ts` 5·
+>   `admin.controller.ts` 3)에 메서드 레벨 `@SkipThrottle()` 부착으로 해소. mutating/auth
+>   엔드포인트의 rate limit(NFR-001~006)은 불변.
+>
+> base `62d14f9`(018 완료 커밋) → working tree(미커밋). 변경 추적: `git diff 62d14f9 --
+> apps/backend`(tracked 11 files, +224/-44) + 신규(untracked) 8개 파일(DTO 2·마이그레이션 2·
+> 테스트 4, 총 572줄). **신규 npm 의존 0건**(class-validator·`@nestjs/throttler` 등 기존
+> 라이브러리만 사용). **신규 Prisma 마이그레이션 1건**(순수 인덱스 추가, 데이터 변경 없음).
+> 선택 단계: Database Design Agent Y(본 spec 에서 인덱스·마이그레이션 산출)·Deploy Agent N
+> (신규 의존·배포 구성 무변경)·Security/Performance Agent Y(재감사 예정, 본 Docs 단계 다음).
+>
+> **known-limitation (GAP-019-05, Low, 사용자 결정 옵션 A — 문서화 후 완료, 2026-07-05
+> 18:26)**: 전체 e2e 스위트(`--runInBand`, 26 suites) 실행 시 2건 잔존 FAIL —
+> `test/auth.e2e-spec.ts::SC-027`(`/auth/login` 50회 순차요청 P95, NFR-002)·
+> `test/auth-recovery.e2e-spec.ts::SC-017`(`/auth/forgot-password`, 018 spec). 근본원인은
+> `THROTTLE_DEFAULT_LIMIT=20/60s`·`THROTTLE_FORGOT_PASSWORD_LIMIT=5/60s`(둘 다 NFR-001/003
+> 의도된 보안 동작)와 해당 e2e 파일의 다회 순차 요청 설계 간 **산술적 충돌**이다. **production
+> 정상**(회귀 아님) — `auth.controller.ts`·`throttle.constants.ts`·두 테스트 파일 전부
+> `git diff 62d14f9`=0(T016/T017 무관, 019 신규 코드 아님). 해소 경로는 production 수정이
+> 아니라 **테스트 하네스 재설계**(예: 테스트별 `ThrottlerStorage` 격리/리셋, 요청 수를 quota
+> 이하로 재설계)이며 본 spec 의 Test Authoring Contract(§F 마이그레이션 2건 한정) 범위 밖이라
+> 별도 후속 spec 미생성하고 알려진 제약으로 남긴다. spec.md **SC-017**(전체 스위트 100% PASS)
+> 은 이 known-limitation 하에 유예됨 — 전체 125/127 PASS, production 결함 0, 회귀 0.
+>
+> **tasks.md 정합성 참고**: T017 완료 기준(b)의 `test/auth-recovery.e2e-spec.ts(SC-017/018)`
+> 언급은 5b 재검증으로 근본원인 오귀속(overreach)임이 확인되었다 — 해당 FAIL 은 T017 이 해소한
+> GET 목록 default throttle 이 아니라 `/auth/forgot-password` 전용 named throttler 쿼터
+> 소진이 원인이며, T017 의 GET-only 설계로는 애초에 해소 대상이 아니었다(GAP-019-04 상세 참조).
+> tasks.md 문서 자체 수정은 Design Agent 소관(본 Docs 단계는 문서 정합화 기록만 남김).
+
+**변경 파일**:
+
+백엔드 — 신규:
+- `apps/backend/src/shared/dto/list-query.dto.ts` (16줄): 공유 `ListQueryDto`(`cursor?`·`limit?`,
+  class-validator) — `ListProductsDto` 패턴 복제
+- `apps/backend/src/modules/admin/dto/admin-seller-list-query.dto.ts` (17줄):
+  `AdminSellerListQueryDto extends ListQueryDto`(`status?`·`q?` 추가, ADR-002 회귀 방지 4필드)
+- `apps/backend/src/shared/prisma/prisma.service.spec.ts` (88줄, T018): `registerRootClient`
+  delegate 복원·미주입 fallback 회귀 방지 unit(SC-006·SC-017)
+- `apps/backend/test/list-query-dto.e2e-spec.ts` (243줄, SC-001~006): 4엔드포인트 DTO 검증
+  통합 테스트(400/200 케이스)
+- `apps/backend/test/pino-redact.e2e-spec.ts` (131줄, SC-014·015): `stdout.write` spy 기반
+  Authorization/Cookie redact 검증(GAP-019-01 하네스 선례 해소)
+- `apps/backend/test/static/list-index.spec.ts` (65줄, SC-007·008): `schema.prisma` 텍스트
+  파싱 기반 인덱스 존재 정적 검증
+- `apps/backend/prisma/migrations/20260705162400_add_product_seller_list_indexes/
+  migration.sql`(7줄)·`rollback.sql`(5줄): `Product.sellerId`·`Seller.status` 복합 인덱스 2건
+  (Database Design Agent 산출)
+
+백엔드 — 수정:
+- `apps/backend/prisma/schema.prisma` (+4): `Product`에
+  `@@index([sellerId, createdAt(sort: Desc), id(sort: Desc)])`, `Seller`에
+  `@@index([status, createdAt(sort: Desc), id(sort: Desc)])` 추가
+- `apps/backend/src/modules/admin/admin.controller.ts` (+37/-변경): `listPendingSellers`·
+  `listUsers`·`listAuditLogs` 3메서드 개별 `@Query()`+`parseInt` → DTO 단일 인자 전환 +
+  3핸들러 `@SkipThrottle()`(T017)
+- `apps/backend/src/modules/product/product.controller.ts` (+14): `listMyProducts` DTO
+  전환(`parseInt` 제거) + GET 5핸들러(`listCategories`·`listMyProducts`·
+  `getMyProductDetail`·`listPublic`·`getDetail`) `@SkipThrottle()`(T017)
+- `apps/backend/src/modules/auth/auth.service.ts` (+1): `findEmail` 404 분기에
+  `securityAuditLogger.findEmailNotFound(phone)` 호출 삽입(성공 경로·시그니처 불변)
+- `apps/backend/src/shared/security/security-audit.logger.ts` (+12): `findEmailNotFound`
+  신규 메서드(기존 3종과 동일 best-effort try/catch 패턴)
+- `apps/backend/src/app.module.ts` (+1): `LoggerModule.forRoot({ pinoHttp })` 에
+  `redact: ['req.headers.authorization', 'req.headers.cookie']` 추가
+- `apps/backend/src/shared/prisma/prisma.service.ts` (+17/-2, T016): `rootClient` 필드+
+  `registerRootClient` 신규, `get tx()` fallback 체인
+  `als.getStore()?.client ?? this.rootClient ?? (this as unknown as TxClient)` 로 확장
+- `apps/backend/src/shared/prisma/prisma.module.ts` (+11/-1, T016): `providers` shorthand →
+  `useFactory`(팩토리가 자신을 `registerRootClient` 로 자기참조 등록), `@Global`·`exports` 불변
+- `apps/backend/src/modules/admin/admin.controller.spec.ts` (+34/-변경, §F): positional-arg
+  호출 → DTO 객체 인자 마이그레이션(T014)
+- `apps/backend/src/modules/auth/auth.service.spec.ts` (+88, §F+SC-011/013):
+  `mockSecurityAuditLogger.findEmailNotFound` 추가 + 신규 테스트
+- `apps/backend/src/shared/security/security-audit.logger.spec.ts` (+49, SC-012/013):
+  `findEmailNotFound` 마스킹·best-effort 테스트
+
+**후속 작업 시 주의사항**:
+- **GAP-019-05(Low, known-limitation)**: `test/auth.e2e-spec.ts::SC-027`·
+  `test/auth-recovery.e2e-spec.ts::SC-017` 는 `--runInBand` 전체 스위트 실행 시 rate-limit
+  quota 산술 충돌로 상시 FAIL 한다(production 정상, 회귀 아님). CI/로컬에서 전체 스위트
+  100% green 을 기대하지 말 것 — 알려진 2건이다. 해소하려면 별도 spec 에서 두 e2e 파일의
+  테스트 하네스(quota 격리/리셋 또는 요청 수 재설계)를 다뤄야 한다.
+- **context.md §6 갱신 필요**: SEC-017-01(L240)·SEC-018-02(L255)·SEC-018-03(L256) 3개 행을
+  "RESOLVED (019)" 로 전이, §6 헤더 테스트 카운트(L22) 갱신, GAP-019-05 신규 행 추가 —
+  `gaps.md` GAP-019-02 에 구체 갱신 문구 기록(Retrospective Agent 처리 위임).
+- **GAP-005-03(마이그레이션 드리프트, accepted)** 무관 — 019 마이그레이션은 순차 누적이라
+  기존 accepted 결정에 영향 없음.
+- **SEC-018-01(Medium, rate limit 헤더 신뢰 미검증)** 은 본 spec 범위 외로 잔존(§범위 외) —
+  운영 배포·infra.md 문서화가 필요한 별도 항목.
+
+---
+
 ## [018-auth-security-hardening] 구현 완료
 
 > v1.1.0 의 열여덟 번째 차수 — **`context.md §6` 에 013~016 스펙의 Security Agent 감사가
