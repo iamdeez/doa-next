@@ -22,13 +22,17 @@
 FROM postgres:16-alpine
 
 # postgres:16-alpine(docker-library 공식 이미지)은 엔트리포인트 스크립트가 bash 를 요구하므로
-# bash·psql·pg_dump 가 이미 포함되어 있다. curl 만 추가(run.sh 의 트래픽전환 후 스모크 GET /health 용).
-RUN apk add --no-cache curl
+# bash·psql·pg_dump 가 이미 포함되어 있다. curl 은 run.sh 의 트래픽전환 후 스모크 GET /health 용.
+# rclone 은 022-legacy-file-binary-migration 파일 바이너리 이관(files-migrate.sh)에서 레거시
+# S3↔R2 오브젝트 복사에 사용한다(ADR-001/002 — vendor-neutral, 신규 별도 이미지 도입 아님/FR-010).
+# alpine community 레포에 rclone 패키지가 존재하며 postgres:16-alpine 은 기본적으로 community 를
+# 활성화한 상태다(GAP-022-01 — 이 가정은 아래 docker build 검증으로 실증한다).
+RUN apk add --no-cache curl rclone
 
 WORKDIR /migration
 COPY . /migration/
 
-RUN chmod +x /migration/extract.sh /migration/load.sh /migration/run.sh
+RUN chmod +x /migration/extract.sh /migration/load.sh /migration/run.sh /migration/files-migrate.sh
 
 # postgres 베이스 이미지의 기본 ENTRYPOINT(docker-entrypoint.sh, postgres 서버 기동용)를 무력화한다
 # — 이 이미지는 서버가 아니라 CLI 러너다. 인자 없이 실행되면 서버를 기동하는 대신 사용법만 출력하고

@@ -1,3 +1,99 @@
+## [022-legacy-file-binary-migration] 구현 완료
+
+> v1.1.0 의 스물두 번째 차수 — 020-data-migration-cutover 가 "R2 실연동 완료 후 별도 진행"으로
+> 범위 외 이월한 `files.files` **실 파일 바이너리**(오브젝트) 이관을 다룬다. 021 이 R2 실연동
+> (`R2FileStorage`)을 완성하여 선행 조건이 충족됨에 따라 사용자 확인(020 CHANGES.md 후속
+> 주의사항 #6) 후 착수했다. 신규 앱 도메인 코드 변경은 0건 — 020 전용 러너 이미지
+> (`scripts/migration/Dockerfile`)를 `rclone` 추가로 확장하고, 신규 스크립트
+> `files-migrate.sh`(precheck/precopy/delta/verify/url-update 5개 서브커맨드)·
+> `sql/30_file_url_update.sql`(url 멱등 갱신 + 검증 쿼리, DDL 무변경)·운영 문서 2종(런북·
+> 사전평가)·정적 테스트 3스위트를 산출했다.
+>
+> **핵심 설계**: rclone 기반 레거시 S3 → R2 서버간 복사(vendor-neutral, P-002/P-004)·key
+> identity 복사(FR-004, key 재작성 없음)·`--checksum` 멱등 skip 으로 델타 처리(`updatedAt`
+> 부재로 워터마크 증분 불가, ADR-003)·`verification_runs`(020 감사 테이블 재사용,
+> `phase='file-migration'`)·개별 실패 재시도 + 잔존 실패 시 사전평가 리포트 재확인 요청
+> (FR-006/007)·멀티파트 ETag 샘플은 `rclone check --download` 실 바이트 대조 fallback
+> (ASM-003 안전망).
+>
+> **검증 방식(옵션 A)**: 실 레거시 AWS S3 접근이 필요한 SC 9건(SC-001·002·003·004·005·006·
+> 011·013·015)은 파이프라인 내 자동 실행 불가 — 020 선례와 동일하게 실행 절차·판정 기준을
+> `test/test-cases.md` §옵션 A 실행 계약으로 명세하고 사용자 실행 결과 전달로 검증하는 계약을
+> 채택했다. 정적 검증 대상 6건(SC-007·008·009·010·012·014)은 자동 테스트 3스위트/18개 전건
+> PASS. 회귀 탐지: `apps/backend/test/static/` 전체 23 suites/153 tests 전건 PASS(020/021 및
+> 그 이전 spec 22종 회귀 0건).
+>
+> base `c59e6f9`(021 문서 반영 커밋) → working tree(미커밋). 변경 추적: `git diff c59e6f9 --
+> stat -- scripts/migration/Dockerfile scripts/migration/config.example.env`(tracked 2 files,
+> +41/-3) + 신규(untracked) 7개 파일(스크립트 1·SQL 1·운영 문서 2·정적 테스트 3, 총 866줄).
+> **신규 npm 의존성 0건**(`apps/backend` 도메인 코드 변경 0건, `git diff c59e6f9 --
+> apps/backend/src apps/backend/prisma` 무변경) — `rclone` 은 npm 패키지가 아닌 시스템 CLI(alpine
+> 패키지)로 러너 이미지에만 추가. 선택 단계: Database Design Agent N(DB 스키마 변경 없음 —
+> `files.files` 컬럼 기존재, url 갱신은 단일 컬럼 결정적 UPDATE)·**Deploy Agent → Security
+> Agent → Performance Agent 는 Y 판정으로 본 Docs 단계 다음 순서대로 진행 예정**(아래 "미해결
+> GAP" 참조).
+>
+> **GAP-022-01(RESOLVED)**: Alpine `postgres:16-alpine` 베이스에서 `apk add rclone` 실제
+> 해소 여부는 정적 리뷰만으로 확정 불가했으나(GAP-020-05 재발 방지 대상), Development Agent 가
+> `docker build`+`docker run rclone version` 1회 실증(`rclone v1.74.1-DEV` 정상 출력)으로 해소.
+
+**변경 파일**:
+- `scripts/migration/Dockerfile` (수정, +7/-3): `apk add --no-cache curl` → `curl rclone` 확장 +
+  `chmod +x` 대상에 `/migration/files-migrate.sh` 추가(020 이미지 확장, 신규 별도 이미지 없음).
+- `scripts/migration/config.example.env` (수정, +34): 레거시 S3 rclone remote 설정 키(엔드포인트·
+  리전·버킷·access/secret, `[TO-VERIFY]` 슬롯) + R2 rclone remote 설정 키(021 `R2_*` 재사용) +
+  `https://` 강제 주석(NFR-004/ADR-009) 추가. 실 자격증명 원문 미기재.
+- `scripts/migration/files-migrate.sh` (신규, 334줄): `precheck`(레거시 총개수·총용량 실측 +
+  예상소요)·`precopy`(`--files-from`·`--checksum`·`--max-duration` 미설정)·`delta`(멱등 재복사)·
+  `verify`(개수 대조 + 샘플 체크섬 + 멀티파트 fallback)·`url-update`(`sql/30_file_url_update.sql`
+  실행) 5개 서브커맨드. `lib/common.sh`(020) source 재사용, `stage_run` 패턴 자체 구현
+  (`phase='file-migration'`), 실패 key 캡처 + 재시도(FR-006/007).
+- `scripts/migration/sql/30_file_url_update.sql` (신규, 44줄): (a) `url = base||'/'||key` 멱등
+  UPDATE(WHERE status='UPLOADED') (b) 개수 대조 쿼리 (c) url 형식 검증 쿼리 (d) key 목록 추출
+  쿼리(`--files-from` 용, PENDING 제외 단일 필터 지점). DDL(CREATE/ALTER) 0건.
+- `scripts/migration/FILE-MIGRATION-RUNBOOK.md` (신규, 146줄): 옵션 A 실행 런북 — 레거시 S3
+  접근이 필요한 4단계(precheck·precopy·delta·verify)마다 "사용자 환경 실행 → 결과 전달 → 검증"
+  절차 명시(SC-008), 020 컷오버 60분 윈도우 통합 체크포인트, R2 공개 접근 사전점검.
+- `scripts/migration/FILE-PRE-ASSESSMENT.md` (신규, 81줄): 사전평가 리포트 템플릿 — 총개수·
+  총용량·예상소요 3항목 슬롯(SC-009) + 잔존 실패 목록·"컷오버 개시 전 사용자 재확인 필요"
+  문구(SC-007) + 멀티파트 ETag 형식 샘플 확인 항목.
+- `apps/backend/test/static/file-migration-runbook.spec.ts` (신규, 72줄): SC-008 — 런북 5개
+  서브커맨드 단계별 라벨 최소출현 정적 검증(it.each 5건 + 라벨 반복 테스트).
+- `apps/backend/test/static/file-migration-pre-assessment.spec.ts` (신규, 59줄): SC-007·009 —
+  사전평가 리포트 3항목 슬롯 + 잔존실패 재확인 문구 정적 검증.
+- `apps/backend/test/static/file-migration-script.spec.ts` (신규, 130줄): SC-010·012·014 —
+  Dockerfile rclone 토큰·신규 이미지 0건·`--max-duration` 부재·TLS 엔드포인트 정적 검증.
+
+**후속 작업 시 주의사항**:
+1. **선택 단계 진행 예정 — Deploy Agent → Security Agent → Performance Agent**: 본 Docs 단계
+   완료 시점 기준이며, 세 선택 Agent 는 아직 실행되지 않았다. 최종 gate 는 그 결과로 확정된다.
+   캐스케이딩 블로킹(agent-rules.md §0) 적용 — Deploy FAIL 시 Security·Performance 스킵,
+   Security BLOCKED(Critical/High) 시 Performance 스킵.
+2. **GAP-022-02(OPEN, Security Agent 재평가 위임)**: 022 가 020 의
+   `migration_staging.verification_runs` 를 `phase='file-migration'` 로 재사용함에 따라 020 의
+   미해결 감사 부채 2건(SEC-020-01 스테이징 정리 미자동화·SEC-020-02 감사 로그 행위자 미기록,
+   `context.md §6`)이 그대로 상속된다. 022 는 신규 악화를 유발하지 않으나(동일 테이블·동일
+   패턴), 파일 이관이 3중 자격증명(레거시 S3 read + R2 write + 타깃 DB write)을 동시 취급하는
+   접근 통제 표면이므로 Security Agent 가 파일 이관 맥락에서 재평가해야 한다.
+3. **옵션 A 실행 계약 9건 대기 중(SC-001·002·003·004·005·006·011·013·015)**: 실 레거시 AWS
+   S3 자격증명·네트워크 접근이 파이프라인 밖 사용자 환경에만 존재하여 파이프라인 내 자동 실행이
+   불가하다. `scripts/migration/FILE-MIGRATION-RUNBOOK.md`·`test/test-cases.md` §옵션 A 실행
+   계약의 절차대로 사용자가 실 환경에서 실행 후 결과를 전달하면 검증을 완료할 수 있다.
+4. **context.md/infra.md 갱신 필요 (Retrospective Agent 위임, gaps.md 신규 미등록 — GAP-021-03
+   에 통합 인지)**: 022 는 `context.md §2 file 모듈`·`§3.4 외부연동`의 기존 정의(FileAsset 필드
+   의미·FileStatus enum·key 형태)를 변경하지 않았다(url 컬럼 데이터만 갱신). 021 완료 미반영
+   기존 OPEN GAP-021-03("실 R2 연동은 후속" 표현 잔존)을 6단계 Docs/Retrospective 가 021+022
+   반영 시 함께 처리한다(gaps.md 참조). GAP-020-02(`files.files` vs `file_assets` 물리명 오표기)
+   는 022 산출물이 실측 물리명 사용으로 회피했을 뿐 별도 처리는 Retrospective 위임 유지.
+5. **레거시 실 구조 [TO-VERIFY] 잔존**: 레거시 S3 버킷명·엔드포인트·리전·key 네이밍·ETag
+   형식·정확한 rclone 버전/플래그 시맨틱은 옵션 A(사용자 실행) + Deploy 단계 이미지 빌드 검증으로
+   확정한다(020 관례 승계, 지어내지 않음).
+6. **DIFF-022 는 base 혼재 없음**: 020·021 이 모두 커밋 완료(`c702d85`·`c21840e`·`c59e6f9`)
+   상태에서 022 가 시작되어, base `c59e6f9` 기준 diff 는 022 변경분만 포함한다(PROC-016-01 caveat
+   불필요).
+
+---
+
 ## [021-payment-file-integration] 구현 완료
 
 > v1.1.0 의 스물한 번째 차수 — 001~020 차수에 걸쳐 실구현된 18개 도메인 모듈 중 마지막까지

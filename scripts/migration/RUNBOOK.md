@@ -113,6 +113,7 @@
 - **명령**: `run.sh cutover` 내부 `delta` 단계 — 사전복사 이후 변경분을 추출·적재 후 `sql/10_transform.sql` 실행(위상 순서 ADR-005: users→products→commerce→orders→payments→settlements→admin→files).
 - **체크포인트**: 서비스별 델타 추출·적재·변환 완료 로그(`verification_runs` step='delta').
 - **롤백 트리거**: 델타 추출/변환 중 치명적 오류(스크립트 비정상 종료) 발생 시 §단계 6 롤백 절차로 즉시 이동(검증 단계까지 가지 않음).
+- **파일 바이너리 병행**: 파일 바이너리 델타/검증은 [FILE-MIGRATION-RUNBOOK.md §4](FILE-MIGRATION-RUNBOOK.md) 병행 체크포인트 참조.
 
 ### 단계 3 — 정합성 검증
 
@@ -121,6 +122,7 @@
 - **명령**: `sql/20_verify.sql` 실행(레코드 수·금전 합계·샘플 체크섬·교차참조 anti-join 4종, MAPPING-SPEC.md §6/§9/§10).
 - **체크포인트**: `verification_runs` phase='verify' 전 행 status='pass'.
 - **롤백 트리거**: 검증 4종 중 하나라도 'fail' → §단계 4 에서 NO-GO 판정.
+- **파일 바이너리 병행**: 파일 바이너리 델타/검증은 [FILE-MIGRATION-RUNBOOK.md §4](FILE-MIGRATION-RUNBOOK.md) 병행 체크포인트 참조.
 
 ### 단계 4 — GO/NO-GO 판단
 
@@ -167,6 +169,8 @@
 ## 5. 검증 대상 범위 — file_assets 메타 vs 바이너리
 
 정합성 검증 대상에 **file_assets 메타데이터**(물리 테이블명 `files.files` — MAPPING-SPEC.md §1 발견사항, GAP-020-02) 레코드 수 대조를 **포함**한다(FR-017, SC-019). 반면 **실 파일 바이너리(오브젝트) 전송·이관 검증은 본 절차의 범위 외로 명시적으로 제외**한다 — 신규 시스템의 `FILE_STORAGE` 는 아직 `StubFileStorage`(무네트워크)이며 실 Cloudflare R2 연동은 별도 spec (spec.md "범위 외" 참조, ASM-012).
+
+> **파일 바이너리 이관(022)**: `files.files` **메타데이터**는 020 이 이관하나, 실 파일 바이너리(오브젝트)는 022-legacy-file-binary-migration 이 별도 이관한다. 컷오버 윈도우 내 파일 델타/검증/url-update 절차는 [FILE-MIGRATION-RUNBOOK.md](FILE-MIGRATION-RUNBOOK.md) 참조 — DB 델타와 **동일 윈도우 내 병행** 실행하고, GO/NO-GO 는 DB 검증 + 파일 검증(022 SC-005/013) 양쪽 pass 로 판정한다.
 
 ## 6. 리허설(dry-run) 권고
 
