@@ -42,6 +42,6 @@ export class PaymentController {
       );
     }
 
-    return this.paymentService.pay(user.userId, dto.orderId, idempotencyKey);
+    return this.paymentService.pay(user.userId, dto.orderId, idempotencyKey, dto.authToken);
   }
 }

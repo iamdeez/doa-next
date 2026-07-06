@@ -14,6 +14,7 @@ export class StubPaymentGateway implements PaymentGatewayPort {
     orderId: string;
     amount: Prisma.Decimal;
     idempotencyKey: string;
+    authToken?: string;
   }): Promise<ChargeResult> {
     this.logger.log(
       `[STUB] charge orderId=${params.orderId} amount=${params.amount} key=${params.idempotencyKey}`,
@@ -28,6 +29,7 @@ export class StubPaymentGateway implements PaymentGatewayPort {
     paymentId: string;
     amount: Prisma.Decimal;
     idempotencyKey: string;
+    pgTransactionId?: string;
   }): Promise<RefundResult> {
     this.logger.log(
       `[STUB] refund paymentId=${params.paymentId} amount=${params.amount} key=${params.idempotencyKey}`,

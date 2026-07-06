@@ -78,10 +78,30 @@ export class ProductRepository {
     });
   }
 
-  async listBySeller(sellerId: string): Promise<Product[]> {
+  /**
+   * 판매자 본인 상품 목록 — cursor 페이지네이션 (017).
+   * cursor/take 미지정 시 전체 반환(하위 호환). orderBy 에 id 2차키를 추가해 cursor 안정성을 보장한다.
+   */
+  async listBySeller(sellerId: string, cursor?: string, take?: number): Promise<Product[]> {
     return this.prisma.product.findMany({
       where: { sellerId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      cursor: cursor ? { id: cursor } : undefined,
+      skip: cursor ? 1 : 0,
+      take,
+    });
+  }
+
+  /**
+   * 공개 조회 가능(ACTIVE·OUT_OF_STOCK) 상품 요약 일괄 조회 — 단일 in 쿼리로 N+1 회피 (017).
+   * 대표 이미지(displayOrder 최소 1건)만 include. 조회 불가 상품은 결과에서 자연 누락(호출 측이 판정).
+   */
+  async findPublicSummariesByIds(
+    ids: string[],
+  ): Promise<(Product & { images: ProductImage[] })[]> {
+    return this.prisma.product.findMany({
+      where: { id: { in: ids }, status: { in: [ProductStatus.ACTIVE, ProductStatus.OUT_OF_STOCK] } },
+      include: { images: { orderBy: { displayOrder: 'asc' }, take: 1 } },
     });
   }
 

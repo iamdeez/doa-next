@@ -1,8 +1,9 @@
 /**
  * InventoryService 단위 테스트 — [env:unit]
  *
- * 대상 SC: SC-041, SC-042, SC-046 (002-catalog 계승)
- *           SC-025 (003-commerce 신규 — restoreStock, T074)
+ * 대상 SC: SC-041, SC-042, SC-046 (v1.0.0/002 spec) 계승
+ *           SC-025 (v1.0.0/003 spec) 신규 — restoreStock, T074
+ *           SC-012/013 (v1.1.0/017 spec 신규 — getStockView·stockIn 응답 구조화)
  * (SC-043,044,045 는 test/static/ — 정적 코드 검증)
  * 검증 방법: Jest mock (InventoryRepository, EventEmitter2, PrismaService)
  *
@@ -12,6 +13,9 @@
  *
  * T013 (003): InventoryService.stockIn/decreaseStock 의 emit 이 onAfterCommit 으로 이동.
  *   PrismaService mock (passthrough) 을 providers 에 추가하여 호출 흐름 유지.
+ *
+ * §F 마이그레이션 017 (tasks.md T018): stockIn 이 커밋 후 findByVariant 로 재조회하여
+ * { variantId, stock } 를 반환하도록 변경됨 — findByVariant mock 을 2회 응답으로 구성.
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -95,7 +99,11 @@ describe('InventoryService', () => {
        * appendLog 필드: delta (not quantity).
        * quantity<=0 유효성 검사는 DTO @Min(1) 레벨 — 서비스 레벨 아님.
        */
-      mockInventoryRepository.findByVariant.mockResolvedValue(FIXED_INVENTORY);
+      // 017: stockIn 이 커밋 후 findByVariant 를 재조회하므로 2회 응답 구성
+      //   1차 호출(입고 전 존재 확인) → 2차 호출(커밋 후 재조회, quantity 갱신됨)
+      mockInventoryRepository.findByVariant
+        .mockResolvedValueOnce(FIXED_INVENTORY)
+        .mockResolvedValueOnce({ ...FIXED_INVENTORY, quantity: 15 });
       mockInventoryRepository.increment.mockResolvedValue({
         ...FIXED_INVENTORY,
         quantity: 15,
@@ -138,6 +146,93 @@ describe('InventoryService', () => {
       await expect(
         service.stockIn(FIXED_VARIANT_ID, 5),
       ).rejects.toThrow('Inventory not found for variant');
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // SC-013 (v1.1.0/017 spec): stockIn — 입고 후 구조화된 응답 { variantId, stock } 반환
+  // ─────────────────────────────────────────────
+  describe('SC-013: stockIn — 입고 응답 구조화 {variantId,stock}', () => {
+    it('when_stock_in_succeeds_then_returns_variantId_and_updated_stock', async () => {
+      /**
+       * SC-013 (FR-009 관련, v1.1.0/017 spec):
+       * 재고 입고 성공 시 응답에 variantId 와 입고 후 갱신된 stock 값이 포함된다
+       * (기존 void 반환을 대체).
+       * production: increment → appendLog → onAfterCommit(emit) → findByVariant 재조회 → { variantId, stock }.
+       */
+      mockInventoryRepository.findByVariant
+        .mockResolvedValueOnce(FIXED_INVENTORY) // 1차: 입고 전 존재 확인 (quantity 10)
+        .mockResolvedValueOnce({ ...FIXED_INVENTORY, quantity: 15 }); // 2차: 커밋 후 재조회
+      mockInventoryRepository.increment.mockResolvedValue({ ...FIXED_INVENTORY, quantity: 15 });
+      mockInventoryRepository.appendLog.mockResolvedValue({
+        id: 'log-id-2',
+        variantId: FIXED_VARIANT_ID,
+        productId: FIXED_PRODUCT_ID,
+        type: 'STOCK_IN',
+        delta: 5,
+      });
+      mockInventoryRepository.sumQuantityByProduct.mockResolvedValue(15);
+
+      const result = await service.stockIn(FIXED_VARIANT_ID, 5);
+
+      expect(result).toEqual({ variantId: FIXED_VARIANT_ID, stock: 15 });
+    });
+
+    it('when_reread_after_commit_returns_null_then_stock_defaults_to_zero', async () => {
+      /**
+       * SC-013 (FR-009 관련, v1.1.0/017 spec) Edge:
+       * 커밋 후 재조회(findByVariant)가 null 을 반환하는 극단 상황에서도
+       * stock 은 0 으로 방어된다 (production: updated?.quantity ?? 0).
+       */
+      mockInventoryRepository.findByVariant
+        .mockResolvedValueOnce(FIXED_INVENTORY)
+        .mockResolvedValueOnce(null);
+      mockInventoryRepository.increment.mockResolvedValue({ ...FIXED_INVENTORY, quantity: 15 });
+      mockInventoryRepository.appendLog.mockResolvedValue({
+        id: 'log-id-3',
+        variantId: FIXED_VARIANT_ID,
+        productId: FIXED_PRODUCT_ID,
+        type: 'STOCK_IN',
+        delta: 5,
+      });
+      mockInventoryRepository.sumQuantityByProduct.mockResolvedValue(15);
+
+      const result = await service.stockIn(FIXED_VARIANT_ID, 5);
+
+      expect(result).toEqual({ variantId: FIXED_VARIANT_ID, stock: 0 });
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // SC-012 (v1.1.0/017 spec): getStockView — 재고 조회 응답 구조화 {variantId,stock}
+  // ─────────────────────────────────────────────
+  describe('SC-012: getStockView — 조회 응답 구조화 {variantId,stock}', () => {
+    it('when_get_stock_view_then_returns_variantId_and_stock', async () => {
+      /**
+       * SC-012 (FR-008 관련, v1.1.0/017 spec):
+       * 재고 조회 시 응답에 variantId 와 stock(현재 수량) 필드가 포함된다
+       * (기존 원시 숫자 반환을 대체 — production getStockView 는 getStock 을 내부 재사용).
+       */
+      mockInventoryRepository.findByVariant.mockResolvedValue({
+        ...FIXED_INVENTORY,
+        quantity: 42,
+      });
+
+      const result = await service.getStockView(FIXED_VARIANT_ID);
+
+      expect(result).toEqual({ variantId: FIXED_VARIANT_ID, stock: 42 });
+    });
+
+    it('when_variant_not_found_then_stock_zero', async () => {
+      /**
+       * SC-012 (FR-008 관련, v1.1.0/017 spec) Edge:
+       * 재고 행이 없으면 stock 은 0 (내부 getStock 의 기존 방어 승계).
+       */
+      mockInventoryRepository.findByVariant.mockResolvedValue(null);
+
+      const result = await service.getStockView(FIXED_VARIANT_ID);
+
+      expect(result).toEqual({ variantId: FIXED_VARIANT_ID, stock: 0 });
     });
   });
 
@@ -256,7 +351,7 @@ describe('InventoryService', () => {
   });
 
   // ─────────────────────────────────────────────
-  // SC-025 (003-commerce): restoreStock — 주문 취소 시 재고 복원 (T074)
+  // SC-025 (v1.0.0/003 spec): restoreStock — 주문 취소 시 재고 복원 (T074)
   // ─────────────────────────────────────────────
   describe('SC-025: restoreStock — 주문 취소 재고 복원', () => {
     it('when_restore_stock_then_incremented_and_log_created', async () => {

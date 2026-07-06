@@ -410,4 +410,54 @@ describe('PaymentService', () => {
       expect(chargeCallArg.orderId).toBe(FIXED_ORDER_ID);
     });
   });
+
+  // ─────────────────────────────────────────────
+  // SC-007 (021-payment-file-integration): PG 실패(failed) 기록 +
+  //   동일 멱등키 재요청 시 중복 charge 방지 (GAP-021-01 옵션1/ADR-008 확정)
+  // ─────────────────────────────────────────────
+  describe('SC-007 (021): pay — PG 실패 failed 기록 + 동일 멱등키 재요청 시 중복 charge 없음', () => {
+    it('when_pg_fails_then_status_failed_and_retry_with_same_key_no_duplicate_charge', async () => {
+      /**
+       * SC-007 (FR-004 관련, GAP-021-01 옵션1 확정):
+       * 1차 요청: gateway.charge 가 타임아웃/5xx 등으로 실패(success:false) →
+       *   payment.status=failed 로 기록되고 outbox 는 기록되지 않는다.
+       * 2차 요청(동일 idempotencyKey 로 재요청): findByIdempotencyKey 가 1차의
+       *   failed 레코드를 반환하여 gateway.charge 를 재호출하지 않고 기존 결과를
+       *   그대로 반환한다(payment_outbox 재시도 레코드·신규 재시도 메커니즘 추가 없음
+       *   — 기존 멱등성 계약(P-005)만으로 안전하게 처리, ADR-008).
+       */
+      mockOrderRepository.findById.mockResolvedValue(FIXED_ORDER_PENDING);
+
+      // 1차: 최초 요청 — PG 타임아웃/5xx 실패
+      mockPaymentRepository.findByIdempotencyKey.mockResolvedValueOnce(null);
+      mockPaymentGateway.charge.mockResolvedValueOnce({
+        success: false,
+        failureReason: 'PG_TIMEOUT',
+      });
+      const FAILED_PAYMENT = {
+        ...FIXED_PAYMENT_COMPLETED,
+        status: 'failed',
+        pgTransactionId: undefined,
+      };
+      mockPaymentRepository.createPayment.mockResolvedValueOnce(FAILED_PAYMENT);
+
+      const first = await service.pay(FIXED_USER_ID, FIXED_ORDER_ID, FIXED_IDEMPOTENCY_KEY);
+
+      expect(mockPaymentRepository.createPayment).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'failed' }),
+      );
+      expect(mockPaymentRepository.createOutbox).not.toHaveBeenCalled();
+      expect(first.status).toBe('failed');
+
+      // 2차: 동일 idempotencyKey 재요청 — 1차의 failed 레코드를 그대로 반환(재시도)
+      mockPaymentRepository.findByIdempotencyKey.mockResolvedValueOnce(FAILED_PAYMENT);
+
+      const second = await service.pay(FIXED_USER_ID, FIXED_ORDER_ID, FIXED_IDEMPOTENCY_KEY);
+
+      // gateway.charge 는 1차에서만 호출됨 — 2차 재요청은 재호출하지 않음(중복 charge 0)
+      expect(mockPaymentGateway.charge).toHaveBeenCalledTimes(1);
+      expect(second.status).toBe('failed');
+      expect(second.paymentId).toBe(FAILED_PAYMENT.id);
+    });
+  });
 });

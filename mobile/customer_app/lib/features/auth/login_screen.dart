@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../theme/app_theme.dart';
+import 'find_email_screen.dart';
+import 'forgot_password_screen.dart';
+import 'social_auth_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -43,8 +46,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _socialLogin(Future<SocialCredential> Function() getCredential) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final credential = await getCredential();
+      await ref
+          .read(authControllerProvider.notifier)
+          .socialLogin(credential.provider, credential.token, state: credential.state);
+    } on SocialAuthCancelled {
+      // 사용자 취소 — 에러 표시 없이 복구
+    } on DioException catch (e) {
+      final msg = e.response?.data is Map ? (e.response!.data['message']) : null;
+      setState(() => _error = msg is String ? msg : '소셜 로그인에 실패했습니다.');
+    } catch (_) {
+      setState(() => _error = '소셜 로그인에 실패했습니다.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final socialService = ref.read(socialAuthServiceProvider);
+
     return Scaffold(
       backgroundColor: DoaColors.surface,
       body: SafeArea(
@@ -117,7 +144,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 32),
               const Text('간편 로그인', style: TextStyle(color: DoaColors.fgMuted, fontSize: 13)),
               const SizedBox(height: 16),
-              const _SocialRow(),
+              _SocialRow(
+                onKakao: _loading ? null : () => _socialLogin(socialService.signInWithKakao),
+                onGoogle: _loading ? null : () => _socialLogin(socialService.signInWithGoogle),
+                onNaver: _loading ? null : () => _socialLogin(socialService.signInWithNaver),
+              ),
             ],
           ),
         ),
@@ -133,12 +164,20 @@ class _LinkRow extends StatelessWidget {
     const style = TextStyle(color: DoaColors.fg, fontSize: 13, fontWeight: FontWeight.w600);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
-        Text('아이디 찾기', style: style),
-        _Dot(),
-        Text('비밀번호 재설정', style: style),
-        _Dot(),
-        Text('회원가입', style: style),
+      children: [
+        GestureDetector(
+          onTap: () => Navigator.push(
+              context, MaterialPageRoute(builder: (_) => const FindEmailScreen())),
+          child: const Text('이메일 찾기', style: style),
+        ),
+        const _Dot(),
+        GestureDetector(
+          onTap: () => Navigator.push(
+              context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+          child: const Text('비밀번호 찾기', style: style),
+        ),
+        const _Dot(),
+        const Text('회원가입', style: style),
       ],
     );
   }
@@ -154,25 +193,52 @@ class _Dot extends StatelessWidget {
 }
 
 class _SocialRow extends StatelessWidget {
-  const _SocialRow();
+  final VoidCallback? onKakao;
+  final VoidCallback? onGoogle;
+  final VoidCallback? onNaver;
+
+  const _SocialRow({
+    required this.onKakao,
+    required this.onGoogle,
+    required this.onNaver,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _social(const Color(0xFFFEE500), const Text('💬', style: TextStyle(fontSize: 22))),
+        GestureDetector(
+          onTap: onKakao,
+          child: _social(const Color(0xFFFEE500), const Text('💬', style: TextStyle(fontSize: 22))),
+        ),
         const SizedBox(width: 20),
-        _social(Colors.white, const Text('G', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            border: true),
+        GestureDetector(
+          onTap: onGoogle,
+          child: _social(
+            Colors.white,
+            const Text('G', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            border: true,
+          ),
+        ),
         const SizedBox(width: 20),
-        _social(const Color(0xFF03C75A), const Text('N',
-            style: TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.bold))),
+        GestureDetector(
+          onTap: onNaver,
+          child: _social(
+            const Color(0xFF03C75A),
+            const Text(
+              'N',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ),
+        ),
       ],
     );
   }
 
   Widget _social(Color bg, Widget child, {bool border = false}) => Container(
-        width: 52, height: 52,
+        width: 52,
+        height: 52,
         decoration: BoxDecoration(
           color: bg,
           shape: BoxShape.circle,

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { SellerProfileResponse } from '../../seller/dto/seller-response.dto';
 
 /**
  * 관리자 도메인 응답 DTO (문서 전용). 사용자 목록은 password 등 민감 필드 제외 안전 요약.
@@ -24,6 +25,15 @@ export class AdminUserResponse {
 export class AdminUserListResponse {
   @ApiProperty({ type: [AdminUserResponse] })
   items!: AdminUserResponse[];
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  nextCursor!: string | null;
+}
+
+/** GET /admin/sellers/pending — 판매자 목록 cursor 페이지네이션 (017). */
+export class AdminSellerListResponse {
+  @ApiProperty({ type: [SellerProfileResponse] })
+  items!: SellerProfileResponse[];
 
   @ApiProperty({ type: String, required: false, nullable: true })
   nextCursor!: string | null;

@@ -1,7 +1,8 @@
 /**
  * InventoryController 단위 테스트 — [env:unit] (SEC-002 소유권 검증)
  *
- * 대상 SC: SC-042, SC-043, SC-044
+ * 대상 SC: SC-042, SC-043, SC-044 (v1.0.0/002 spec)(v1.0.0/003 spec) 계승
+ *          SC-012/013 (v1.1.0/017 spec 신규 — getStockView·stockIn 응답 구조화 배선)
  * 검증 방법: Jest mock (InventoryService, SellerService, ProductService)
  *
  * SEC-002 개요 (FR-050/051):
@@ -12,6 +13,9 @@
  * Canonical 심볼 (tasks.md Test Authoring Contract):
  *   ProductService.assertSellerOwnsVariant(userId, variantId): Promise<void> (ForbiddenException)
  *   SellerService.getApprovedSeller(userId): Promise<Seller>
+ *
+ * §F 마이그레이션 017 (tasks.md T018): getStock 라우트가 내부적으로
+ * inventoryService.getStockView 를 호출하도록 전환 — mock 대상을 getStock → getStockView 로 갱신.
  */
 
 import { ForbiddenException } from '@nestjs/common';
@@ -27,6 +31,7 @@ import { ProductService } from '../product/product.service';
 const mockInventoryService = {
   stockIn: jest.fn(),
   getStock: jest.fn(),
+  getStockView: jest.fn(),
   checkAvailability: jest.fn(),
   decreaseStock: jest.fn(),
   restoreStock: jest.fn(),
@@ -86,10 +91,15 @@ describe('InventoryController (SEC-002 소유권 검증)', () => {
        */
       mockSellerService.getApprovedSeller.mockResolvedValue(FIXED_SELLER);
       mockProductService.assertSellerOwnsVariant.mockResolvedValue(undefined); // 소유 OK
-      mockInventoryService.stockIn.mockResolvedValue(undefined);
+      // 017: stockIn 응답이 구조화된 객체로 변경 (기존 void 대체)
+      mockInventoryService.stockIn.mockResolvedValue({ variantId: FIXED_VARIANT_ID, stock: 15 });
 
       const dto = { quantity: 5 };
-      await controller.stockIn(simulateUser(FIXED_USER_ID) as never, FIXED_VARIANT_ID, dto as never);
+      const result = await controller.stockIn(
+        simulateUser(FIXED_USER_ID) as never,
+        FIXED_VARIANT_ID,
+        dto as never,
+      );
 
       // assertSellerOwnsVariant 호출 확인 (SEC-002)
       expect(mockProductService.assertSellerOwnsVariant).toHaveBeenCalledWith(
@@ -98,6 +108,8 @@ describe('InventoryController (SEC-002 소유권 검증)', () => {
       );
       // 기존 stockIn 동작 유지
       expect(mockInventoryService.stockIn).toHaveBeenCalledWith(FIXED_VARIANT_ID, 5);
+      // SC-013 (v1.1.0/017 spec): 컨트롤러가 구조화된 응답을 그대로 전달
+      expect(result).toEqual({ variantId: FIXED_VARIANT_ID, stock: 15 });
     });
   });
 
@@ -167,18 +179,22 @@ describe('InventoryController (SEC-002 소유권 검증)', () => {
         controller.getStock(simulateUser(FIXED_USER_ID) as never, FIXED_VARIANT_ID),
       ).rejects.toThrow(ForbiddenException);
 
-      // inventoryService.getStock은 호출되지 않아야 함 (소유권 차단 우선)
-      expect(mockInventoryService.getStock).not.toHaveBeenCalled();
+      // inventoryService.getStockView 는 호출되지 않아야 함 (소유권 차단 우선, 017: getStock→getStockView 전환)
+      expect(mockInventoryService.getStockView).not.toHaveBeenCalled();
     });
 
-    it('when_own_variant_getstock_then_quantity', async () => {
+    it('when_own_variant_getstock_then_structured_response(SC-012)', async () => {
       /**
-       * SC-044 (FR-051 관련) Edge:
-       * 본인 소유 variant 재고 조회 → 수량 반환.
+       * SC-012 (FR-008 관련, v1.1.0/017 spec):
+       * 본인 소유 variant 재고 조회 → { variantId, stock } 구조화된 응답 반환.
+       * §F 마이그레이션: 컨트롤러가 getStock 대신 getStockView 를 호출하도록 전환.
        */
       mockSellerService.getApprovedSeller.mockResolvedValue(FIXED_SELLER);
       mockProductService.assertSellerOwnsVariant.mockResolvedValue(undefined);
-      mockInventoryService.getStock.mockResolvedValue(42);
+      mockInventoryService.getStockView.mockResolvedValue({
+        variantId: FIXED_VARIANT_ID,
+        stock: 42,
+      });
 
       const result = await controller.getStock(simulateUser(FIXED_USER_ID) as never, FIXED_VARIANT_ID);
 
@@ -186,8 +202,8 @@ describe('InventoryController (SEC-002 소유권 검증)', () => {
         FIXED_USER_ID,
         FIXED_VARIANT_ID,
       );
-      expect(mockInventoryService.getStock).toHaveBeenCalledWith(FIXED_VARIANT_ID);
-      expect(result).toBe(42);
+      expect(mockInventoryService.getStockView).toHaveBeenCalledWith(FIXED_VARIANT_ID);
+      expect(result).toEqual({ variantId: FIXED_VARIANT_ID, stock: 42 });
     });
   });
 });

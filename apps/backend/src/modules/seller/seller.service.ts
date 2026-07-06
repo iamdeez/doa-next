@@ -119,6 +119,21 @@ export class SellerService {
   }
 
   /**
+   * 상태별 판매자 목록 — cursor 페이지네이션 + 검색 (017).
+   * AdminService 가 DI 경유로 소비. limit 클램프는 호출 측(AdminService) 책임.
+   */
+  async listSellers(params: {
+    status: SellerStatus;
+    cursor?: string;
+    take: number;
+    q?: string;
+  }): Promise<{ items: SellerProfile[]; nextCursor: string | null }> {
+    const items = await this.sellerRepository.listByStatusPaginated(params);
+    const nextCursor = items.length === params.take ? items[items.length - 1].id : null;
+    return { items, nextCursor };
+  }
+
+  /**
    * sellerId → 판매자 소유 userId 해석 (009 알림 연동, additive read-only).
    * NotificationEventsHandler 가 정산·리뷰 알림 수신자(판매자 userId) 해석에 사용. 미존재 시 null.
    */

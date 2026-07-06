@@ -2,12 +2,18 @@
  * UserService 단위 테스트 — [env:unit]
  *
  * 대상 SC: SC-001, SC-003, SC-004, SC-005, SC-006, SC-007,
- *           SC-008, SC-009, SC-010, SC-012
- * 검증 방법: Jest mock (UserRepository)
+ *           SC-008, SC-009, SC-010, SC-012 (v1.0.0/002 spec) 계승
+ *           SC-014, SC-015, SC-016, SC-017 (v1.1.0/017 spec 신규 — 위시리스트·최근 본 상품 요약 enrichment)
+ * 검증 방법: Jest mock (UserRepository, ProductService)
  *
  * TDD Red: 구현 미완성 상태에서 작성된 테스트.
  *   - 서비스 메서드가 stub(빈 몸체)이므로 현재 FAIL 예상.
  *   - production 코드(T-B2) 구현 완료 후 Green 전환.
+ *
+ * §F 마이그레이션 017 (tasks.md T019, DI canonical — 최대 리스크):
+ *   UserService 생성자에 ProductService 가 신규 주입되므로 Test.createTestingModule 의
+ *   providers 에 { provide: ProductService, useValue: mockProductService } 를 반드시 추가한다.
+ *   미추가 시 "Nest can't resolve dependencies of UserService" 로 전체 스위트가 DI 해소 실패한다.
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -21,6 +27,7 @@ import { Prisma } from '@prisma/client';
 
 import { UserService } from './user.service';
 import { UserRepository } from './user.repository';
+import { ProductService } from '../product/product.service';
 
 // ─────────────────────────────────────────────
 // 상수 (plan.md T-B1 — MAX_PRODUCT_VIEWS=50)
@@ -45,6 +52,11 @@ const mockUserRepository = {
   findWishlistsByUser: jest.fn(),
   upsertProductView: jest.fn(),
   findRecentViews: jest.fn(),
+};
+
+// 017: UserService 생성자 신규 DI (research.md — 순환 없음, ProductModule.exports 로 해소)
+const mockProductService = {
+  getPublicSummaries: jest.fn(),
 };
 
 // ─────────────────────────────────────────────
@@ -78,11 +90,15 @@ describe('UserService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // 017: enrichment 무관 기존 테스트 회귀 방지용 안전 기본값(빈 Map) — 필요 시 개별 테스트에서 override
+    mockProductService.getPublicSummaries.mockResolvedValue(new Map());
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserService,
         { provide: UserRepository, useValue: mockUserRepository },
+        // 017 §F: ProductService DI 필수 — 미추가 시 전체 스위트 compile FAIL (tasks.md Test Authoring Contract)
+        { provide: ProductService, useValue: mockProductService },
       ],
     }).compile();
 
@@ -380,6 +396,128 @@ describe('UserService', () => {
         MAX_PRODUCT_VIEWS,
       );
       expect(result).toHaveLength(50);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // SC-014 (v1.1.0/017 spec): listWishlist — ACTIVE 상품 요약 enrichment
+  // ─────────────────────────────────────────────
+  describe('SC-014: listWishlist — ACTIVE 상품 요약(title·price·thumbnailUrl) 포함', () => {
+    it('when_wishlist_item_references_active_product_then_summary_included', async () => {
+      /**
+       * SC-014 (FR-010 관련, v1.1.0/017 spec):
+       * 위시리스트에 담긴 ACTIVE 상태 상품을 조회하면, 각 항목에 title·price·대표 이미지 URL
+       * 이 포함되어 반환된다.
+       * production: findWishlistsByUser → productService.getPublicSummaries(ids) →
+       *   summaries.get(productId) 존재 시 productAvailable=true·product={title,price,thumbnailUrl}.
+       */
+      const wishlists = [
+        { id: 'w1', userId: FIXED_USER_ID, productId: FIXED_PRODUCT_ID, createdAt: new Date() },
+      ];
+      mockUserRepository.findWishlistsByUser.mockResolvedValue(wishlists);
+      mockProductService.getPublicSummaries.mockResolvedValue(
+        new Map([
+          [
+            FIXED_PRODUCT_ID,
+            { productId: FIXED_PRODUCT_ID, title: '테스트 상품', price: '10000', thumbnailUrl: 'https://example.com/img.jpg' },
+          ],
+        ]),
+      );
+
+      const result = await (service as any).listWishlist(FIXED_USER_ID);
+
+      expect(mockProductService.getPublicSummaries).toHaveBeenCalledWith([FIXED_PRODUCT_ID]);
+      expect(result[0].productAvailable).toBe(true);
+      expect(result[0].product).toMatchObject({
+        title: '테스트 상품',
+        price: '10000',
+        thumbnailUrl: 'https://example.com/img.jpg',
+      });
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // SC-015 (v1.1.0/017 spec): listRecentViews — 상품 요약 enrichment
+  // ─────────────────────────────────────────────
+  describe('SC-015: listRecentViews — 상품 요약(title·price·thumbnailUrl) 포함', () => {
+    it('when_recent_view_references_active_product_then_summary_included', async () => {
+      /**
+       * SC-015 (FR-011 관련, v1.1.0/017 spec):
+       * 최근 본 상품 목록 조회 시 각 항목에 title·price·대표 이미지 URL 이 포함되어 반환된다.
+       */
+      const views = [
+        { id: 'v1', userId: FIXED_USER_ID, productId: FIXED_PRODUCT_ID, viewedAt: new Date() },
+      ];
+      mockUserRepository.findRecentViews.mockResolvedValue(views);
+      mockProductService.getPublicSummaries.mockResolvedValue(
+        new Map([
+          [
+            FIXED_PRODUCT_ID,
+            { productId: FIXED_PRODUCT_ID, title: '테스트 상품', price: '10000', thumbnailUrl: null },
+          ],
+        ]),
+      );
+
+      const result = await (service as any).listRecentViews(FIXED_USER_ID);
+
+      expect(mockProductService.getPublicSummaries).toHaveBeenCalledWith([FIXED_PRODUCT_ID]);
+      expect(result[0].productAvailable).toBe(true);
+      expect(result[0].product).toMatchObject({ title: '테스트 상품', price: '10000', thumbnailUrl: null });
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // SC-016 (v1.1.0/017 spec): listWishlist — 조회 불가 상품 항목 유지·표시
+  // ─────────────────────────────────────────────
+  describe('SC-016: listWishlist — 삭제/DRAFT/INACTIVE 상품 항목 유지 + productAvailable=false', () => {
+    it('when_wishlist_item_references_unavailable_product_then_item_kept_with_flag', async () => {
+      /**
+       * SC-016 (FR-012 관련, v1.1.0/017 spec) Edge:
+       * 위시리스트에 담긴 상품이 삭제되었거나 DRAFT/INACTIVE 상태인 경우, 해당 위시리스트 항목은
+       * 응답에서 누락되지 않고 productAvailable:false + product:null 로 유지된다(무음 필터링 금지, ASM-005).
+       * production: getPublicSummaries 는 ACTIVE/OUT_OF_STOCK 만 조회 가능 → 조회 불가 상품은 Map 에서 자연 누락.
+       */
+      const unavailableProductId = 'draft-or-deleted-product-id';
+      const wishlists = [
+        { id: 'w1', userId: FIXED_USER_ID, productId: unavailableProductId, createdAt: new Date() },
+      ];
+      mockUserRepository.findWishlistsByUser.mockResolvedValue(wishlists);
+      // 조회 불가 상품은 Map 에 없음(빈 Map)
+      mockProductService.getPublicSummaries.mockResolvedValue(new Map());
+
+      const result = await (service as any).listWishlist(FIXED_USER_ID);
+
+      // 항목 자체는 누락되지 않고 유지됨
+      expect(result).toHaveLength(1);
+      expect(result[0].productId).toBe(unavailableProductId);
+      expect(result[0].productAvailable).toBe(false);
+      expect(result[0].product).toBeNull();
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // SC-017 (v1.1.0/017 spec): listRecentViews — 조회 불가 상품 항목 유지·표시
+  // ─────────────────────────────────────────────
+  describe('SC-017: listRecentViews — 조회 불가 상품 항목 유지 + productAvailable=false', () => {
+    it('when_recent_view_references_unavailable_product_then_item_kept_with_flag', async () => {
+      /**
+       * SC-017 (FR-012 관련, v1.1.0/017 spec) Edge:
+       * 최근 본 상품 목록에서도 동일하게, 참조 상품이 조회 불가 상태인 항목이 누락 없이 유지되고
+       * 조회 불가 여부가 표시된다.
+       */
+      const unavailableProductId = 'inactive-or-deleted-product-id';
+      const views = [
+        { id: 'v1', userId: FIXED_USER_ID, productId: unavailableProductId, viewedAt: new Date() },
+      ];
+      mockUserRepository.findRecentViews.mockResolvedValue(views);
+      mockProductService.getPublicSummaries.mockResolvedValue(new Map());
+
+      const result = await (service as any).listRecentViews(FIXED_USER_ID);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].productId).toBe(unavailableProductId);
+      expect(result[0].productAvailable).toBe(false);
+      expect(result[0].product).toBeNull();
     });
   });
 });

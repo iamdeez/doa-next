@@ -5,8 +5,14 @@ import '../../core/providers.dart';
 import '../../theme/app_theme.dart';
 import '../address/address_book_screen.dart';
 import '../coupon/coupon_box_screen.dart';
+import 'mileage_screen.dart';
+import '../notification/notification_settings_screen.dart';
 import '../order/order_history_screen.dart';
+import '../support/faq_screen.dart';
+import '../support/notice_screen.dart';
+import '../support/support_actions.dart';
 import '../wishlist/wishlist_screen.dart';
+import 'profile_edit_screen.dart';
 
 class MyPageScreen extends ConsumerWidget {
   const MyPageScreen({super.key});
@@ -30,15 +36,20 @@ class MyPageScreen extends ConsumerWidget {
             ('최근 본 상품', null),
             ('배송 주소록', () => Navigator.push(
                 context, MaterialPageRoute(builder: (_) => const AddressBookScreen()))),
-            ('마일리지 포인트', null),
+            ('마일리지 포인트', () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const MileageScreen()))),
           ]),
           const Divider(height: 8, thickness: 8, color: DoaColors.canvas),
-          const _Section(title: '고객 서비스', items: [
-            ('1:1 문의하기', null),
-            ('자주하는 질문(FAQ)', null),
-            ('공지사항', null),
-            ('알림설정', null),
-            ('개인정보수정', null),
+          _Section(title: '고객 서비스', items: [
+            ('1:1 문의하기', () => openSupportEmail(context)),
+            ('자주하는 질문(FAQ)', () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const FaqScreen()))),
+            ('공지사항', () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const NoticeScreen()))),
+            ('알림설정', () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()))),
+            ('개인정보수정', () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const ProfileEditScreen()))),
           ]),
           Padding(
             padding: const EdgeInsets.all(16),
@@ -61,29 +72,44 @@ class MyPageScreen extends ConsumerWidget {
   }
 }
 
-class _ProfileRow extends StatelessWidget {
+class _ProfileRow extends ConsumerWidget {
   const _ProfileRow();
+
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: DoaColors.surface,
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          const CircleAvatar(radius: 26, backgroundColor: DoaColors.muted,
-              child: Icon(Icons.person, color: DoaColors.fgSubtle)),
-          const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text('내 계정', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-              SizedBox(height: 2),
-              Text('user@email.com', style: TextStyle(color: DoaColors.fgMuted, fontSize: 13)),
-            ],
-          ),
-          const Spacer(),
-          const Icon(Icons.chevron_right, color: DoaColors.fgSubtle),
-        ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final meAsync = ref.watch(authMeProvider);
+    final name = meAsync.maybeWhen(
+      data: (data) => data['name'] as String? ?? '회원',
+      orElse: () => '회원',
+    );
+    final email = meAsync.maybeWhen(
+      data: (data) => data['email'] as String? ?? '',
+      orElse: () => '',
+    );
+
+    return InkWell(
+      onTap: () => Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const ProfileEditScreen())),
+      child: Container(
+        color: DoaColors.surface,
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            const CircleAvatar(radius: 26, backgroundColor: DoaColors.muted,
+                child: Icon(Icons.person, color: DoaColors.fgSubtle)),
+            const SizedBox(width: 14),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(email, style: const TextStyle(color: DoaColors.fgMuted, fontSize: 13)),
+              ],
+            ),
+            const Spacer(),
+            const Icon(Icons.chevron_right, color: DoaColors.fgSubtle),
+          ],
+        ),
       ),
     );
   }

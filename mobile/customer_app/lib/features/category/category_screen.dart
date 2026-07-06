@@ -47,8 +47,21 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
       appBar: AppBar(title: const Text('카테고리'), automaticallyImplyLeading: false),
       body: categories.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('카테고리를 불러오지 못했습니다.\n$e',
-            textAlign: TextAlign.center, style: const TextStyle(color: DoaColors.fgMuted))),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('카테고리를 불러오지 못했습니다.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: DoaColors.fgMuted)),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(categoriesProvider),
+                child: const Text('재시도'),
+              ),
+            ],
+          ),
+        ),
         data: (cats) {
           if (cats.isEmpty) {
             return const Center(child: Text('카테고리가 없습니다.', style: TextStyle(color: DoaColors.fgMuted)));

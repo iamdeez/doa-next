@@ -10,6 +10,12 @@ export interface StockChangedEvent {
   totalStock: number;
 }
 
+/** 재고 조회·입고 응답 구조 (017). */
+export interface InventoryStockView {
+  variantId: string;
+  stock: number;
+}
+
 @Injectable()
 export class InventoryService {
   constructor(
@@ -35,8 +41,12 @@ export class InventoryService {
     });
   }
 
-  /** 재고 입고 + 커밋 후 이벤트 발행 (FR-030, SC-041) */
-  async stockIn(variantId: string, quantity: number): Promise<void> {
+  /**
+   * 재고 입고 + 커밋 후 이벤트 발행 (FR-030, SC-041).
+   * 응답 구조화(017): increment 커밋 후 최신 수량을 재조회하여 { variantId, stock } 반환.
+   * 재조회는 이미 커밋된 값을 읽으므로 원자성·기존 emit 순서에 영향 없음.
+   */
+  async stockIn(variantId: string, quantity: number): Promise<InventoryStockView> {
     const inv = await this.inventoryRepository.findByVariant(variantId);
     if (!inv) throw new BadRequestException('Inventory not found for variant');
 
@@ -50,13 +60,21 @@ export class InventoryService {
 
     // 트랜잭션 커밋 이후 이벤트 발행 (onAfterCommit: ALS 활성 시 훅 등록, 비활성 시 즉시 실행)
     await this.prisma.onAfterCommit(() => this.emitStockChanged(inv.productId));
+
+    const updated = await this.inventoryRepository.findByVariant(variantId);
+    return { variantId, stock: updated?.quantity ?? 0 };
   }
 
-  /** 현재 재고 수량 조회 (FR-031, SC-042) */
+  /** 현재 재고 수량 조회 (FR-031, SC-042) — cart/order 등 내부 소비자용 원시 숫자 반환은 보존(017). */
   async getStock(variantId: string): Promise<number> {
     const inv = await this.inventoryRepository.findByVariant(variantId);
     if (!inv) return 0;
     return inv.quantity;
+  }
+
+  /** 재고 조회 응답 구조화 (017) — controller 전용. */
+  async getStockView(variantId: string): Promise<InventoryStockView> {
+    return { variantId, stock: await this.getStock(variantId) };
   }
 
   /**

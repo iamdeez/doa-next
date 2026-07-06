@@ -12,10 +12,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../shared/auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../../shared/auth/optional-jwt-auth.guard';
 import { CurrentUser } from '../../shared/auth/current-user.decorator';
 import { AuthenticatedUser } from '../../shared/auth/jwt.strategy';
+import { ListQueryDto } from '../../shared/dto/list-query.dto';
 import {
   CategoryResponse,
   ProductDetailResponse,
@@ -35,21 +37,43 @@ export class CategoriesController {
   constructor(private readonly productService: ProductService) {}
 
   @Get()
+  @SkipThrottle()
   @ApiOkResponse({ type: [CategoryResponse] })
   listCategories() {
     return this.productService.listCategories();
   }
 }
 
-/** /sellers/me/products — 승인 판매자 본인 상품 목록 */
+/** /sellers/me/products — 승인 판매자 본인 상품 목록·상세 (017) */
 @Controller('sellers/me')
 @UseGuards(JwtAuthGuard)
 export class SellerProductController {
   constructor(private readonly productService: ProductService) {}
 
+  /** GET /sellers/me/products — cursor 페이지네이션 목록 */
   @Get('products')
-  listMyProducts(@CurrentUser() user: AuthenticatedUser) {
-    return this.productService.listMyProducts(user.userId);
+  @SkipThrottle()
+  @ApiOkResponse({ type: ProductListResponse })
+  listMyProducts(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ListQueryDto,
+  ) {
+    return this.productService.listMyProducts(
+      user.userId,
+      query.cursor,
+      query.limit,
+    );
+  }
+
+  /** GET /sellers/me/products/:id — 소유 상품 상태 무관 상세, variants·images 포함 */
+  @Get('products/:id')
+  @SkipThrottle()
+  @ApiOkResponse({ type: ProductDetailResponse })
+  getMyProductDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') productId: string,
+  ) {
+    return this.productService.getMyProductDetail(user.userId, productId);
   }
 }
 
@@ -62,6 +86,7 @@ export class ProductController {
 
   /** GET /products — cursor 기반 공개 목록 (ACTIVE+OUT_OF_STOCK) */
   @Get()
+  @SkipThrottle()
   @ApiOkResponse({ type: ProductListResponse })
   listPublic(@Query() query: ListProductsDto) {
     return this.productService.listPublic(query.cursor, query.limit);
@@ -70,6 +95,7 @@ export class ProductController {
   /** GET /products/:id — 상세 조회, 인증 시 조회 기록 */
   @Get(':id')
   @UseGuards(OptionalJwtAuthGuard)
+  @SkipThrottle()
   @ApiOkResponse({ type: ProductDetailResponse })
   getDetail(
     @Param('id') productId: string,

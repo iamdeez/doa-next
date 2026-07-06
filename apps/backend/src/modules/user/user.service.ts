@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { ProductService } from '../product/product.service';
 import { MAX_PRODUCT_VIEWS } from './user.constants';
 import { UserRepository } from './user.repository';
 
@@ -50,9 +51,19 @@ export interface AdminUserListItem {
   createdAt: Date;
 }
 
+/** 위시리스트·최근 본 상품 항목에 병합되는 상품 요약 (017). 조회 불가 시 null. */
+export interface ProductSummaryInfo {
+  title: string;
+  price: string;
+  thumbnailUrl: string | null;
+}
+
 @Injectable()
 export class UserService {
-  constructor(private readonly userRepository: UserRepository) {}
+  constructor(
+    private readonly userRepository: UserRepository,
+    private readonly productService: ProductService,
+  ) {}
 
   // ── Profile ───────────────────────────────────────────────────────
 
@@ -147,8 +158,12 @@ export class UserService {
 
   // ── Wishlist ──────────────────────────────────────────────────────
 
-  async listWishlist(userId: string): Promise<WishlistItem[]> {
-    return this.userRepository.findWishlistsByUser(userId);
+  /** 위시리스트 조회 + 상품 요약 enrichment (017 — ProductService DI, 모듈 경계 준수). */
+  async listWishlist(
+    userId: string,
+  ): Promise<(WishlistItem & { productAvailable: boolean; product: ProductSummaryInfo | null })[]> {
+    const rows = await this.userRepository.findWishlistsByUser(userId);
+    return this.enrichWithProductSummary(rows);
   }
 
   async addWishlist(userId: string, productId: string): Promise<WishlistItem> {
@@ -168,12 +183,40 @@ export class UserService {
 
   // ── ProductView ───────────────────────────────────────────────────
 
-  async listRecentViews(userId: string): Promise<RecentView[]> {
-    return this.userRepository.findRecentViews(userId, MAX_PRODUCT_VIEWS);
+  /** 최근 본 상품 조회 + 상품 요약 enrichment (017 — ProductService DI, 모듈 경계 준수). */
+  async listRecentViews(
+    userId: string,
+  ): Promise<(RecentView & { productAvailable: boolean; product: ProductSummaryInfo | null })[]> {
+    const rows = await this.userRepository.findRecentViews(userId, MAX_PRODUCT_VIEWS);
+    return this.enrichWithProductSummary(rows);
   }
 
   /** product.viewed 이벤트 핸들러(UserEventsHandler)가 호출. */
   async recordProductView(userId: string, productId: string): Promise<void> {
     await this.userRepository.upsertProductView(userId, productId);
+  }
+
+  // ── Private helpers ───────────────────────────────────────────────
+
+  /**
+   * 위시리스트·최근 본 상품 공통 enrichment (017).
+   * productAvailable·product 두 필드를 동일 가드(summaries.get 존재 여부)로 결정하는 통합 블록.
+   * 조회 불가 항목은 제외하지 않고 유지 + productAvailable:false + product:null
+   * (데이터 유실로 오인되지 않도록 무음 필터링하지 않음).
+   */
+  private async enrichWithProductSummary<T extends { productId: string }>(
+    rows: T[],
+  ): Promise<(T & { productAvailable: boolean; product: ProductSummaryInfo | null })[]> {
+    const summaries = await this.productService.getPublicSummaries(rows.map((r) => r.productId));
+    return rows.map((r) => {
+      const summary = summaries.get(r.productId);
+      return {
+        ...r,
+        productAvailable: !!summary,
+        product: summary
+          ? { title: summary.title, price: summary.price.toString(), thumbnailUrl: summary.thumbnailUrl }
+          : null,
+      };
+    });
   }
 }

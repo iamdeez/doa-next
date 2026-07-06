@@ -15,21 +15,41 @@ datasource db {
 // users 스키마 — Stage 1 + Stage 2 실체화 테이블
 // ============================================================
 
-/// 사용자 기본 정보. password 는 bcrypt 해시값만 저장 (NFR-005).
+/// 사용자 기본 정보. password: bcrypt 해시값만 저장, 소셜 전용 사용자는 null (ADR-005).
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  password      String
-  name          String?
-  phone         String?
-  createdAt     DateTime       @default(now())
-  refreshTokens RefreshToken[]
-  seller        Seller?
-  addresses     Address[]
-  wishlists     Wishlist[]
-  productViews  ProductView[]
+  id             String          @id @default(cuid())
+  email          String          @unique
+  password       String?
+  name           String?
+  phone          String?
+  createdAt      DateTime        @default(now())
+  refreshTokens  RefreshToken[]
+  seller         Seller?
+  addresses      Address[]
+  wishlists      Wishlist[]
+  productViews   ProductView[]
+  socialAccounts SocialAccount[]
 
   @@map("users")
+  @@schema("users")
+}
+
+/// 소셜 로그인 연동 계정. 사용자당 N건(복수 제공자 연동 가능, ADR-004).
+/// provider+providerId 복합 유니크: 동일 소셜 계정 중복 연동 차단·동시성 P2002 방어 (FR-004).
+model SocialAccount {
+  id         String   @id @default(cuid())
+  userId     String
+  provider   String
+  providerId String
+  /// 연동 시점 제공자 이메일. FR-003(email null 거부) 이후에만 insert — DB NOT NULL 유지.
+  email      String
+  name       String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@index([userId])
+  @@map("social_accounts")
   @@schema("users")
 }
 
@@ -69,6 +89,8 @@ model Seller {
   createdAt           DateTime     @default(now())
   user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  /// 관리자 판매자 목록 cursor 페이지네이션 커버 — WHERE status + ORDER BY createdAt DESC, id DESC 완전 커버 (FR-007, ADR-003, 019)
+  @@index([status, createdAt(sort: Desc), id(sort: Desc)])
   @@map("sellers")
   @@schema("users")
 }
@@ -117,6 +139,38 @@ model ProductView {
   @@unique([userId, productId])
   @@index([userId, viewedAt(sort: Desc)])
   @@map("product_views")
+  @@schema("users")
+}
+
+/// 비밀번호 재설정 OTP. 원문은 저장하지 않고 SHA-256 해시만 보관 (ADR-005).
+/// 1회 사용 후 consumedAt 기록, 10분 만료, 60초 재발송 제한은 서비스 레이어 책임.
+/// attempts: 잘못된 OTP 시도 횟수. OTP_MAX_ATTEMPTS(5) 도달 시 소비 처리(브루트포스 차단).
+model PasswordResetOtp {
+  id         String    @id @default(cuid())
+  email      String
+  otpHash    String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([email, createdAt(sort: Desc)])
+  @@map("password_reset_otps")
+  @@schema("users")
+}
+
+/// 네이버 code-exchange CSRF 방지용 서버 발급 state nonce (016).
+/// 발급 시 INSERT, 검증 시 조건부 DELETE(delete-on-consume, 1회성 — FR-005).
+/// 만료 행은 발급 시 opportunistic 정리. CSRF nonce 이므로 소비 이력 감사 불요.
+model OAuthState {
+  id        String   @id @default(cuid())
+  state     String   @unique          // base64url 난수(node:crypto randomBytes(32)) — NFR-002
+  provider  String                    // 'naver'(현재) — 향후 provider 확장 여지
+  expiresAt DateTime                   // now + NAVER_STATE_TTL_MIN — FR-002 TTL
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])                 // 만료 정리(deleteExpiredOAuthStates) 인덱스
+  @@map("oauth_states")
   @@schema("users")
 }
 
@@ -173,6 +227,8 @@ model Product {
   inventories Inventory[]
 
   @@index([status, createdAt(sort: Desc), id(sort: Desc)])
+  /// 판매자 상품 목록 cursor 페이지네이션 커버 — WHERE sellerId + ORDER BY createdAt DESC, id DESC 완전 커버 (FR-006, ADR-003, 019)
+  @@index([sellerId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("products")
   @@schema("products")
 }

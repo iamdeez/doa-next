@@ -40,6 +40,28 @@ export class SellerRepository {
     });
   }
 
+  /**
+   * 상태별 판매자 목록 — cursor 페이지네이션 + businessName 부분 일치 검색 (017).
+   * orderBy 에 id 2차키를 추가해 동일 createdAt 행의 cursor 안정성을 보장한다.
+   */
+  async listByStatusPaginated(params: {
+    status: SellerStatus;
+    cursor?: string;
+    take: number;
+    q?: string;
+  }): Promise<Seller[]> {
+    return this.prisma.seller.findMany({
+      where: {
+        status: params.status,
+        ...(params.q ? { businessName: { contains: params.q, mode: 'insensitive' } } : {}),
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      cursor: params.cursor ? { id: params.cursor } : undefined,
+      skip: params.cursor ? 1 : 0,
+      take: params.take,
+    });
+  }
+
   async updateSeller(
     id: string,
     data: {

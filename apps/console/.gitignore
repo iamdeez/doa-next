@@ -3,3 +3,8 @@
 /build
 next-env.d.ts
 *.tsbuildinfo
+
+# Playwright e2e 산출물
+/test-results/
+/playwright-report/
+/playwright/.cache/

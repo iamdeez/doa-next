@@ -152,12 +152,20 @@ describe('007 banner/admin (e2e)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('when_admin_lists_pending_sellers_then_200_array', async () => {
+  it('when_admin_lists_pending_sellers_then_200_envelope(SC-011)', async () => {
+    /**
+     * SC-011 (FR-007 관련, v1.1.0/017 spec) §F 마이그레이션:
+     * GET /admin/sellers/pending 응답이 기존 원시 배열에서 {items, nextCursor} envelope 으로
+     * 변경됨(breaking change, research.md §F — 회귀 FAIL 확정 항목). 배열 직접 단언을 제거하고
+     * envelope 필드 존재 + items 배열 여부로 정정한다.
+     */
     if (!app) return;
     const res = await request(app.getHttpServer())
       .get('/admin/sellers/pending')
       .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveProperty('items');
+    expect(Array.isArray(res.body.items)).toBe(true);
+    expect(res.body).toHaveProperty('nextCursor');
   });
 });

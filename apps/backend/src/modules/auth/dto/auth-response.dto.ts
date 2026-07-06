@@ -29,9 +29,31 @@ export class AuthProfileResponse {
   @ApiProperty()
   email!: string;
 
+  @ApiProperty({ type: String, nullable: true, required: false })
+  name?: string | null;
+
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: string;
 
   @ApiProperty()
   isAdmin!: boolean;
+}
+
+export class FindEmailResponse {
+  @ApiProperty({ example: 'us**@example.com', description: '마스킹된 이메일' })
+  email!: string;
+}
+
+export class SocialLoginResponse {
+  @ApiProperty({ description: 'JWT access token' })
+  accessToken!: string;
+
+  @ApiProperty({ description: 'JWT refresh token' })
+  refreshToken!: string;
+}
+
+/** 네이버 code-exchange CSRF state 발급 응답. */
+export class NaverStateResponse {
+  @ApiProperty({ description: 'CSRF 방지용 state 값(base64url, 1회성)' })
+  state!: string;
 }

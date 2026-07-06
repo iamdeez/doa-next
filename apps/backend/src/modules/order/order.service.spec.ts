@@ -567,6 +567,43 @@ describe('OrderService', () => {
   });
 
   // ─────────────────────────────────────────────
+  // SC-009 (021-payment-file-integration): 환불이 관리자 승인 없이 자동 처리
+  // ─────────────────────────────────────────────
+  describe('SC-009 (021): cancel — 환불이 관리자 개입 없이 자동 처리', () => {
+    it('when_cancel_paid_then_refund_completes_within_single_call_without_manual_approval', async () => {
+      /**
+       * SC-009 (FR-006 관련, 021-payment-file-integration spec):
+       * 환불은 기본적으로 자동 처리되어야 한다 — cancel(userId, orderId) 단 1회 호출로
+       * paymentService.refund 가 즉시 실행·완료되며, 별도의 관리자 승인 API 호출·대기
+       * 단계가 없다. 현재 코드베이스에는 관리자 승인 게이트가 존재하지 않으므로(grep
+       * 결과 admin/approval 관련 의존성 0건 — research.md), cancel() 자체가 곧 자동
+       * 경로임을 확인한다. FR-006 의 "예외 케이스 발생 시 admin_audit_logs 재사용"
+       * 경로는 예외를 유발하지 않는 본 테스트 범위 밖(자동 처리 기본값만 검증).
+       */
+      const idempotencyKey = `refund:${FIXED_ORDER_ID}`;
+      mockOrderRepository.findById.mockResolvedValue({
+        ...FIXED_ORDER_PENDING,
+        status: 'confirmed',
+      });
+      mockPaymentService.findPaymentByOrderId.mockResolvedValue({
+        id: FIXED_PAYMENT_ID,
+        status: 'completed',
+      });
+      mockPaymentService.refund.mockResolvedValue({ success: true });
+      mockInventoryService.restoreStock.mockResolvedValue(undefined);
+      mockOrderRepository.updateStatus.mockResolvedValue(undefined);
+      mockOrderRepository.appendEvent.mockResolvedValue(undefined);
+
+      await service.cancel(FIXED_USER_ID, FIXED_ORDER_ID);
+
+      // cancel() 단일 호출로 refund 가 정확히 1회 즉시 실행 완료 — 별도 승인 대기·재호출 불요
+      expect(mockPaymentService.refund).toHaveBeenCalledTimes(1);
+      expect(mockPaymentService.refund).toHaveBeenCalledWith(FIXED_PAYMENT_ID, idempotencyKey);
+      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith(FIXED_ORDER_ID, 'cancelled');
+    });
+  });
+
+  // ─────────────────────────────────────────────
   // SC-025: 취소 시 restoreStock 호출
   // ─────────────────────────────────────────────
   describe('SC-025: cancel — restoreStock 호출', () => {

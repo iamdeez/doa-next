@@ -27,6 +27,14 @@ export interface VariantSnapshot {
   sku: string;
 }
 
+/** getPublicSummaries 반환 값 — 위시리스트·최근 본 상품 enrichment 용 (017). */
+export interface ProductSummaryView {
+  productId: string;
+  title: string;
+  price: Prisma.Decimal;
+  thumbnailUrl: string | null;
+}
+
 @Injectable()
 export class ProductService {
   constructor(
@@ -253,9 +261,47 @@ export class ProductService {
     return product;
   }
 
-  async listMyProducts(userId: string) {
+  /**
+   * 승인 판매자 본인 상품 상세 — 상태 무관, variants·images 포함 (017).
+   * 분기 순서 고정: 존재 확인(404) → 소유권 확인(403, updateProduct/publish 와 동일 관례).
+   */
+  async getMyProductDetail(userId: string, productId: string) {
+    const product = await this.productRepository.findById(productId);
+    if (!product) throw new NotFoundException('Product not found');
+    await this.assertOwner(userId, product.sellerId);
+    return product;
+  }
+
+  /** 승인 판매자 본인 상품 목록 — cursor 페이지네이션 (017). */
+  async listMyProducts(
+    userId: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<ProductListResult> {
     const seller = await this.sellerService.getApprovedSeller(userId);
-    return this.productRepository.listBySeller(seller.id);
+    const take = Math.min(Math.max(limit ?? DEFAULT_PAGE_LIMIT, 1), MAX_PAGE_LIMIT);
+    const items = await this.productRepository.listBySeller(seller.id, cursor, take);
+    const nextCursor = items.length === take ? items[items.length - 1].id : null;
+    return { items, nextCursor };
+  }
+
+  /**
+   * 공개 조회 가능(ACTIVE·OUT_OF_STOCK) 상품 요약 일괄 조회 (017).
+   * user 모듈이 위시리스트·최근 본 상품 enrichment 를 위해 DI 로 소비하는 공개 메서드(모듈 경계 — 직접 쿼리 금지).
+   * 조회 불가(DRAFT·INACTIVE·삭제·미존재) 상품은 반환 Map 에서 누락 — 호출 측이 productAvailable 판정.
+   */
+  async getPublicSummaries(productIds: string[]): Promise<Map<string, ProductSummaryView>> {
+    const products = await this.productRepository.findPublicSummariesByIds(productIds);
+    const result = new Map<string, ProductSummaryView>();
+    for (const product of products) {
+      result.set(product.id, {
+        productId: product.id,
+        title: product.title,
+        price: product.price,
+        thumbnailUrl: product.images[0]?.url ?? null,
+      });
+    }
+    return result;
   }
 
   /**

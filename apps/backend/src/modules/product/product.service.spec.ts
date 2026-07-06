@@ -1,9 +1,13 @@
 /**
  * ProductService 단위 테스트 — [env:unit]
  *
- * 대상 SC: SC-019~029, SC-032~040
+ * 대상 SC: SC-019~029, SC-032~040 (v1.0.0/002 spec) 계승
+ *          SC-006~011 (v1.1.0/017 spec 신규 — getMyProductDetail·listMyProducts envelope 화)
  * (SC-030,031 은 product.events.spec.ts — inventory.stock-changed 이벤트)
  * 검증 방법: Jest mock (ProductRepository, SellerService, InventoryService, EventEmitter2)
+ *
+ * §F 마이그레이션 017 (tasks.md T017): listMyProducts 기존 array 단언(L~663) →
+ * envelope {items,nextCursor} 단언 + listBySeller(sellerId, cursor, take) 호출 인자 반영.
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -39,6 +43,7 @@ const mockProductRepository = {
   deleteImage: jest.fn(),
   listPublic: jest.fn(),
   listBySeller: jest.fn(),
+  findPublicSummariesByIds: jest.fn(),
 };
 
 const mockSellerService = {
@@ -652,34 +657,222 @@ describe('ProductService', () => {
   });
 
   // ─────────────────────────────────────────────
-  // SC-040: GET /sellers/me/products — 전체 상태 포함 판매자 상품 목록
+  // SC-006/007 (v1.1.0/017 spec): getMyProductDetail — 소유 상품 상세(전 상태) variants·images 포함
   // ─────────────────────────────────────────────
-  describe('SC-040: listSellerProducts — 전체 상태 포함 목록', () => {
-    it('when_seller_lists_own_products_then_all_statuses', async () => {
+  describe('SC-006/007: getMyProductDetail — 소유 상품 상세(전 상태 허용)', () => {
+    const FIXED_PRODUCT_WITH_RELATIONS = {
+      ...FIXED_PRODUCT_DRAFT,
+      images: [FIXED_IMAGE],
+      variants: [FIXED_VARIANT],
+    };
+
+    it('when_owner_gets_own_DRAFT_product_then_detail_with_variants_images(SC-006)', async () => {
       /**
-       * SC-040 (FR-029 관련):
-       * APPROVED 판매자가 GET /sellers/me/products 호출 시
-       * DRAFT·ACTIVE·OUT_OF_STOCK·INACTIVE 전체 상태 포함 목록 반환.
-       * production listMyProducts(userId): getApprovedSeller → listBySeller(seller.id).
+       * SC-006 (FR-004 관련, v1.1.0/017 spec):
+       * 승인된 판매자가 자신 소유의 DRAFT 상태 상품을 ID로 상세 조회하면
+       * variants·images 가 포함된 응답이 반환된다.
+       * production getMyProductDetail(userId, productId):
+       *   findById(productId) → assertOwner(userId, product.sellerId) → return product.
+       */
+      mockProductRepository.findById.mockResolvedValue(FIXED_PRODUCT_WITH_RELATIONS);
+      mockSellerService.getApprovedSeller.mockResolvedValue(FIXED_APPROVED_SELLER);
+
+      const result = await service.getMyProductDetail(FIXED_USER_ID, FIXED_PRODUCT_ID);
+
+      expect(mockProductRepository.findById).toHaveBeenCalledWith(FIXED_PRODUCT_ID);
+      expect(result.status).toBe('DRAFT');
+      expect(result.variants).toEqual([FIXED_VARIANT]);
+      expect(result.images).toEqual([FIXED_IMAGE]);
+    });
+
+    it.each([
+      ['ACTIVE', { ...FIXED_PRODUCT_WITH_RELATIONS, status: 'ACTIVE' }],
+      ['OUT_OF_STOCK', { ...FIXED_PRODUCT_WITH_RELATIONS, status: 'OUT_OF_STOCK' }],
+      ['INACTIVE', { ...FIXED_PRODUCT_WITH_RELATIONS, status: 'INACTIVE' }],
+    ])(
+      'when_owner_gets_own_%s_product_then_detail_with_variants_images(SC-007)',
+      async (_status, product) => {
+        /**
+         * SC-007 (FR-004 관련, v1.1.0/017 spec) Edge:
+         * ACTIVE/OUT_OF_STOCK/INACTIVE 상태 상품도 동일하게 variants·images 포함 응답.
+         * (getDetail 의 ACTIVE/OUT_OF_STOCK 전용 필터와 달리 getMyProductDetail 은 전 상태 허용)
+         */
+        mockProductRepository.findById.mockResolvedValue(product);
+        mockSellerService.getApprovedSeller.mockResolvedValue(FIXED_APPROVED_SELLER);
+
+        const result = await service.getMyProductDetail(FIXED_USER_ID, FIXED_PRODUCT_ID);
+
+        expect(result.variants).toEqual([FIXED_VARIANT]);
+        expect(result.images).toEqual([FIXED_IMAGE]);
+      },
+    );
+  });
+
+  // ─────────────────────────────────────────────
+  // SC-008/009 (v1.1.0/017 spec): getMyProductDetail — 비소유/미존재 거부
+  // ─────────────────────────────────────────────
+  describe('SC-008/009: getMyProductDetail — 비소유 403 / 미존재 404', () => {
+    it('when_non_owner_gets_product_then_403(SC-008)', async () => {
+      /**
+       * SC-008 (FR-005 관련, v1.1.0/017 spec) Error:
+       * 판매자가 소유하지 않은 상품 ID로 조회 시도 시 ForbiddenException(403).
+       * production: findById → OK(존재) → assertOwner → seller.id !== product.sellerId → Forbidden.
+       */
+      mockProductRepository.findById.mockResolvedValue({
+        ...FIXED_PRODUCT_DRAFT,
+        sellerId: 'other-seller-id',
+        images: [],
+        variants: [],
+      });
+      mockSellerService.getApprovedSeller.mockResolvedValue(FIXED_APPROVED_SELLER); // FIXED_SELLER_ID
+
+      await expect(
+        service.getMyProductDetail(FIXED_USER_ID, FIXED_PRODUCT_ID),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('when_product_not_found_then_404(SC-009)', async () => {
+      /**
+       * SC-009 (FR-005 관련, v1.1.0/017 spec) Error:
+       * 존재하지 않는 상품 ID로 조회 시도 시 NotFoundException(404).
+       * production: findById → null → NotFoundException (404→403 분기 순서 고정 — assertOwner 호출 전 차단).
+       */
+      mockProductRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.getMyProductDetail(FIXED_USER_ID, 'nonexistent-product-id'),
+      ).rejects.toThrow(NotFoundException);
+
+      // 404 가 403 보다 먼저 판정 — assertOwner(getApprovedSeller) 미호출
+      expect(mockSellerService.getApprovedSeller).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // SC-010/011 (v1.1.0/017 spec): listMyProducts — 페이지네이션 envelope 화
+  // §F 마이그레이션 — 기존 SC-040(array 단언) 을 envelope 단언으로 재작성
+  // ─────────────────────────────────────────────
+  describe('SC-010/011: listMyProducts — cursor 페이지네이션 + envelope {items,nextCursor}', () => {
+    it('when_seller_lists_own_products_with_limit_then_paginated_envelope(SC-010)', async () => {
+      /**
+       * SC-010 (FR-006 관련, v1.1.0/017 spec) Edge:
+       * limit 지정 조회 시 items ≤ limit, 다음 페이지 존재 여부가 nextCursor 로 표현.
+       * production listMyProducts(userId, cursor?, limit?):
+       *   getApprovedSeller → take 클램프 → listBySeller(seller.id, cursor, take) → envelope.
        */
       mockSellerService.getApprovedSeller.mockResolvedValue(FIXED_APPROVED_SELLER);
-      const allProducts = [
-        FIXED_PRODUCT_DRAFT,
-        FIXED_PRODUCT_ACTIVE,
-        FIXED_PRODUCT_INACTIVE,
-        FIXED_PRODUCT_OOS,
-      ];
-      mockProductRepository.listBySeller.mockResolvedValue(allProducts);
+      const twoProducts = [FIXED_PRODUCT_DRAFT, FIXED_PRODUCT_ACTIVE];
+      mockProductRepository.listBySeller.mockResolvedValue(twoProducts);
+
+      const result = await service.listMyProducts(FIXED_USER_ID, undefined, 2);
+
+      expect(mockProductRepository.listBySeller).toHaveBeenCalledWith(
+        FIXED_SELLER_ID,
+        undefined,
+        2,
+      );
+      expect(result.items).toHaveLength(2);
+      // items.length === take → 다음 페이지 존재 가능성 → nextCursor = 마지막 항목 id
+      expect(result.nextCursor).toBe(FIXED_PRODUCT_ACTIVE.id);
+    });
+
+    it('when_last_page_then_nextCursor_null(SC-010)', async () => {
+      /**
+       * SC-010 (FR-006 관련, v1.1.0/017 spec) Edge:
+       * 반환 개수가 take 미만이면(마지막 페이지) nextCursor 는 null.
+       */
+      mockSellerService.getApprovedSeller.mockResolvedValue(FIXED_APPROVED_SELLER);
+      mockProductRepository.listBySeller.mockResolvedValue([FIXED_PRODUCT_DRAFT]);
+
+      const result = await service.listMyProducts(FIXED_USER_ID, undefined, 2);
+
+      expect(result.nextCursor).toBeNull();
+    });
+
+    it('when_response_returned_then_envelope_shape(SC-011)', async () => {
+      /**
+       * SC-011 (FR-007 관련, v1.1.0/017 spec):
+       * 판매자 상품 목록 응답이 {items, nextCursor} envelope 형태임을 확인
+       * (FR-002 관리자 판매자 목록과 동일 envelope — admin.service.spec.ts 에서 교차 확인).
+       */
+      mockSellerService.getApprovedSeller.mockResolvedValue(FIXED_APPROVED_SELLER);
+      mockProductRepository.listBySeller.mockResolvedValue([FIXED_PRODUCT_DRAFT]);
 
       const result = await service.listMyProducts(FIXED_USER_ID);
 
-      expect(mockProductRepository.listBySeller).toHaveBeenCalledWith(FIXED_SELLER_ID);
-      expect(result).toHaveLength(4);
-      const statuses = result.map((p: any) => p.status);
-      expect(statuses).toContain('DRAFT');
-      expect(statuses).toContain('ACTIVE');
-      expect(statuses).toContain('INACTIVE');
-      expect(statuses).toContain('OUT_OF_STOCK');
+      expect(result).toHaveProperty('items');
+      expect(result).toHaveProperty('nextCursor');
+      expect(Array.isArray(result.items)).toBe(true);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // getPublicSummaries (FR-010/011 관련, v1.1.0/017 spec) — SC-014/015 신뢰성 보강
+  // user.service.spec.ts 는 ProductService 를 mock 하므로, 본 실제 구현(Map 변환·thumbnailUrl
+  // 추출·빈 입력 방어)의 직접 단위 검증은 여기(ProductService 소유 파일)에서 수행한다.
+  // (SC 번호 미할당 — 신규 공개 메서드의 내부 정확성 보강, 별도 SC-XXX 미부여)
+  // ─────────────────────────────────────────────
+  describe('getPublicSummaries — 공개 상품 요약 일괄 조회 (v1.1.0/017 spec)', () => {
+    it('when_products_found_then_map_keyed_by_productId_with_thumbnail', async () => {
+      /**
+       * (FR-010/011 관련, v1.1.0/017 spec):
+       * findPublicSummariesByIds 결과를 productId → {productId,title,price,thumbnailUrl} Map 으로 변환.
+       * 대표 이미지(첫 이미지)의 url 을 thumbnailUrl 로 사용.
+       */
+      mockProductRepository.findPublicSummariesByIds.mockResolvedValue([
+        { ...FIXED_PRODUCT_ACTIVE, images: [FIXED_IMAGE] },
+      ]);
+
+      const result = await service.getPublicSummaries([FIXED_PRODUCT_ID]);
+
+      expect(mockProductRepository.findPublicSummariesByIds).toHaveBeenCalledWith([FIXED_PRODUCT_ID]);
+      expect(result.get(FIXED_PRODUCT_ID)).toMatchObject({
+        productId: FIXED_PRODUCT_ID,
+        title: FIXED_PRODUCT_ACTIVE.title,
+        thumbnailUrl: FIXED_IMAGE.url,
+      });
+    });
+
+    it('when_product_has_no_images_then_thumbnailUrl_null', async () => {
+      /**
+       * (FR-010/011 관련, v1.1.0/017 spec) Edge:
+       * 이미지가 없는 상품은 thumbnailUrl:null (DTO nullable).
+       */
+      mockProductRepository.findPublicSummariesByIds.mockResolvedValue([
+        { ...FIXED_PRODUCT_ACTIVE, images: [] },
+      ]);
+
+      const result = await service.getPublicSummaries([FIXED_PRODUCT_ID]);
+
+      expect(result.get(FIXED_PRODUCT_ID)?.thumbnailUrl).toBeNull();
+    });
+
+    it('when_ids_empty_then_returns_empty_map', async () => {
+      /**
+       * (FR-010/011 관련, v1.1.0/017 spec) Edge:
+       * 빈 배열 입력 시 빈 Map 반환(위시리스트/최근 본 상품이 비어있는 경우 안전 방어).
+       */
+      mockProductRepository.findPublicSummariesByIds.mockResolvedValue([]);
+
+      const result = await service.getPublicSummaries([]);
+
+      expect(result.size).toBe(0);
+    });
+
+    it('when_some_ids_unavailable_then_map_omits_them', async () => {
+      /**
+       * (FR-010/011·FR-012 관련, v1.1.0/017 spec) Edge:
+       * 조회 불가(DRAFT/INACTIVE/삭제/미존재) 상품은 repository 가 자연 누락시키므로
+       * 반환 Map 에도 해당 productId 가 없다 — 호출 측(UserService)이 productAvailable 판정.
+       */
+      mockProductRepository.findPublicSummariesByIds.mockResolvedValue([
+        { ...FIXED_PRODUCT_ACTIVE, images: [] },
+      ]); // 요청 2건 중 1건만 조회 가능 상태로 응답
+
+      const result = await service.getPublicSummaries([FIXED_PRODUCT_ID, 'unavailable-id']);
+
+      expect(result.has(FIXED_PRODUCT_ID)).toBe(true);
+      expect(result.has('unavailable-id')).toBe(false);
     });
   });
 });

@@ -41,6 +41,14 @@ dependencies:
   cached_network_image: ^3.4.1
   intl: ^0.20.3
   uuid: ^4.5.3
+  url_launcher: ^6.3.1
+  shared_preferences: ^2.5.3
+  # naver 소셜 로그인 authorization code 획득 — 시스템 브라우저 + 커스텀 URL 스킴 콜백 캡처(ADR-006).
+  flutter_web_auth_2: ^4.1.0
+  # 카카오·구글 실 SDK 배선(RealSocialAuthService). 운영 셋업 후 `flutter pub get` 필요.
+  # 배선 상세(main 초기화·네이티브 스킴·dart-define)는 docs/ops/social-login-setup.md 파트 3 참조.
+  kakao_flutter_sdk_user: ^1.9.6
+  google_sign_in: ^6.2.1
 
 dev_dependencies:
   flutter_test:

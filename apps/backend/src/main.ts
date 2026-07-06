@@ -1,10 +1,15 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+
+  // Fly.io 엣지 프록시 첫 홉만 신뢰(FR-004/NFR-008/ADR-004) — trust proxy 미설정 시
+  // req.ip 가 프록시 연결 IP 단일 버킷으로 집계되어 rate limit 이 운영에서 무력화된다.
+  app.set('trust proxy', 1);
 
   // structured stdout logging via nestjs-pino
   app.useLogger(app.get(Logger));

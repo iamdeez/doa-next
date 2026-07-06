@@ -38,7 +38,11 @@
 
 ### BE-GAP-001 — 관리자 자기 식별 수단 부재
 
-**심각도**: 🔴 Blocking
+**심각도**: 🔴 Blocking → ✅ **해소됨** (v1.1.0/012 console-phase4, 커밋 `381b5eb` "isAdmin 노출")
+
+> **해소 근거 (현행 코드 검증 2026-07-03)**: `GET /auth/me` → `getProfile`(`auth.service.ts:200-206`)가
+> `isAdmin`(`isAdminUserId(userId, ADMIN_USER_IDS)` 기준, AdminGuard 와 동일)을 반환한다.
+> 응답 타입 `AuthProfileResponse.isAdmin: boolean`(`auth-response.dto.ts:39`). 아래 원문은 이력 보존용.
 
 **현재 동작 (근거)**
 - `GET /auth/me` → `{ id, email, createdAt }` 만 반환 (`auth.service.ts` `getProfile`, L177). 역할/권한 클레임 없음.
@@ -176,7 +180,7 @@
 
 | ID | 심각도 | 영역 | 한 줄 요약 | console 우회 가능 |
 |---|---|---|---|---|
-| BE-GAP-001 | 🔴 | auth | `GET /auth/me` 에 관리자/역할 정보 없음 | 부분(액션 403 처리) |
+| BE-GAP-001 | ✅ 해소됨 | auth | `GET /auth/me` 에 관리자/역할 정보 없음 → **`isAdmin` 반환(012, `381b5eb`)** | — |
 | BE-GAP-002 | 🔴 | seller(admin) | 관리자용 판매자 목록 조회 API 없음 | 불가(플레이스홀더) |
 | BE-GAP-003 | 🔴 | product | DRAFT 상품 상세·옵션 조회 API 없음 | 부분(POST 응답+publish) |
 | BE-GAP-004 | 🟡 | product | 판매자 상품 목록 페이지네이션 없음 | 가능 |
@@ -188,7 +192,7 @@
 
 ## 후속 처리 방향
 
-- 🔴 3건(001·002·003)은 console 의 관리자 기능과 상품 관리 워크플로우를 정상화하려면 백엔드 보강이 필요하다.
-  003-commerce 완료 후, 002-catalog 보강 spec 또는 신규 spec(예: `0xx-seller-admin-read-apis`)으로 묶어 처리하는 것을 제안한다.
+- 🔴 **001 은 012(console-phase4, `381b5eb`)에서 해소됨.** 잔여 🔴 2건(002·003)은 console 의 관리자 기능과 상품 관리 워크플로우를 정상화하려면 백엔드 보강이 필요하다.
+  신규 spec(예: `0xx-seller-admin-read-apis`)으로 묶어 처리하는 것을 제안한다.
 - 🟡 3건(004·005·006)은 일관성·확장성 개선으로, 위 보강 spec 에 함께 포함하거나 별도 리팩토링 spec 으로 분리한다.
 - 본 문서는 console 가 새 갭을 발견할 때마다 갱신한다. 백엔드에서 해소된 항목은 "해소됨(spec/커밋 참조)"으로 표기 후 일정 기간 뒤 제거한다.

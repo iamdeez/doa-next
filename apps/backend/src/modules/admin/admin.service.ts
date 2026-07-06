@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { AdminAuditLog, SellerStatus } from '@prisma/client';
 import { SellerProfile, SellerService } from '../seller/seller.service';
 import { AdminUserListItem, UserService } from '../user/user.service';
@@ -7,8 +7,10 @@ import {
   AUDIT_ACTION,
   AUDIT_TARGET,
   DEFAULT_AUDIT_LOG_LIMIT,
+  DEFAULT_SELLER_PAGE_LIMIT,
   DEFAULT_USER_PAGE_LIMIT,
   MAX_AUDIT_LOG_LIMIT,
+  MAX_SELLER_PAGE_LIMIT,
   MAX_USER_PAGE_LIMIT,
 } from './admin.constants';
 
@@ -27,9 +29,23 @@ export class AdminService {
 
   // ── 판매자 운영 ──────────────────────────────────────────────────
 
-  /** 승인 대기(PENDING) 판매자 목록. */
-  async listPendingSellers(): Promise<SellerProfile[]> {
-    return this.sellerService.listByStatus(SellerStatus.PENDING);
+  /**
+   * 판매자 목록 — 상태 필터·cursor 페이지네이션·businessName 검색 (017).
+   * status 미지정 시 PENDING(기존 `GET /admin/sellers/pending` 동작 하위 호환).
+   * 유효하지 않은 status 문자열은 400.
+   */
+  async listSellers(
+    status: string | undefined,
+    cursor: string | undefined,
+    limit: number | undefined,
+    q: string | undefined,
+  ): Promise<{ items: SellerProfile[]; nextCursor: string | null }> {
+    const resolvedStatus = this.resolveSellerStatus(status);
+    const take = Math.min(
+      Math.max(limit ?? DEFAULT_SELLER_PAGE_LIMIT, 1),
+      MAX_SELLER_PAGE_LIMIT,
+    );
+    return this.sellerService.listSellers({ status: resolvedStatus, cursor, take, q });
   }
 
   /**
@@ -73,5 +89,16 @@ export class AdminService {
       MAX_AUDIT_LOG_LIMIT,
     );
     return this.adminRepository.listAuditLogs(take);
+  }
+
+  // ── Private helpers ───────────────────────────────────────────────
+
+  /** status 쿼리 파라미터 파싱 — 미지정 시 PENDING(하위 호환), 화이트리스트 외 값은 400. */
+  private resolveSellerStatus(status: string | undefined): SellerStatus {
+    if (status === undefined) return SellerStatus.PENDING;
+    if (!Object.values(SellerStatus).includes(status as SellerStatus)) {
+      throw new BadRequestException(`Invalid seller status: ${status}`);
+    }
+    return status as SellerStatus;
   }
 }

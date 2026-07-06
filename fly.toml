@@ -1,0 +1,66 @@
+# ============================================================
+# fly.toml — DOA Market backend (NestJS 모듈러 모놀리스)
+# ------------------------------------------------------------
+# 초안. 실제 배포 전 아래 [교체] 표시 값을 확정한다.
+#   - app            : Fly 앱 이름 (dev/prod 각각 별도 앱 — infra.md §1)
+#   - primary_region : 서비스 리전
+#
+# 빌드 컨텍스트 = 저장소 루트여야 한다. Dockerfile 이 루트의
+# pnpm-workspace.yaml·packages/ 를 COPY 하므로(멀티스테이지 pnpm 모노레포),
+# 이 파일을 루트에 두고 루트에서 배포한다:
+#     flyctl deploy            # (이 파일이 있는 저장소 루트에서 실행)
+# CI 의 `docker build -f apps/backend/Dockerfile .` 와 동일한 컨텍스트다.
+# ============================================================
+
+app = "doa-next-backend"        # [교체] dev: doa-next-backend-dev / prod: doa-next-backend
+primary_region = "nrt"          # [교체 검토] nrt=도쿄(한국 근접). Fly 는 서울(icn) 미제공
+
+[build]
+  dockerfile = "apps/backend/Dockerfile"
+
+[env]
+  # 비밀이 아닌 값만. 크레덴셜은 `flyctl secrets set` 으로 주입한다(아래 배포 절차 참조).
+  NODE_ENV = "production"
+  PORT = "3000"
+
+# 마이그레이션은 배포 release 단계에서 자동 실행 — 실패 시 배포 중단(infra.md §3).
+# WORKDIR=/app, 스키마 경로는 루트 기준.
+#
+# ⚠️ prisma CLI 경로 주의: `prisma`(CLI)는 backend package.json 의 devDependencies 다.
+#   런타임 이미지는 `pnpm install --prod` 후 builder 의 node_modules/.pnpm 전체를 COPY 하므로
+#   CLI 파일 자체는 존재하나 bin 심볼릭(.bin/prisma)은 없다. 그래서 .pnpm 안의 실제 엔트리를
+#   직접 실행한다. `prisma@*` glob 은 peer-suffix(예: prisma@6.19.3_typescript@5.9.3)를 흡수한다.
+#   [권장 개선] `prisma` 를 dependencies 로 이동하면 아래를 다음으로 단순화 가능(bin 심볼릭 생성):
+#       release_command = "pnpm --filter backend exec prisma migrate deploy"
+#   (lockfile 재생성 필요 — 별도 커밋. 미이동 상태에서는 아래 glob 형태를 사용한다.)
+[deploy]
+  release_command = "sh -c 'node $(ls -d node_modules/.pnpm/prisma@*/node_modules/prisma/build/index.js | head -1) migrate deploy --schema apps/backend/prisma/schema.prisma'"
+  strategy = "rolling"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  # scale-to-zero 허용(infra.md §2·§8). prod 콜드스타트가 부담되면
+  # min_machines_running = 1 로 상향(§8 "scale-to-zero 콜드 스타트" 제약).
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  # Fly 배포 헬스체크 — GET /health(외부 의존 없음, Dockerfile HEALTHCHECK 와 동일 대상)
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "3s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+# 하드웨어(infra.md §3): 초기 소형. 트래픽 증가 시 상향.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

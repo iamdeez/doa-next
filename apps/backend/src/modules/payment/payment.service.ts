@@ -37,6 +37,8 @@ export class PaymentService {
     userId: string,
     orderId: string,
     idempotencyKey: string,
+    /** 표준(호스팅) 결제창 1단계 인증 결과 토큰 (GAP-021-02) — optional, 미전달 시 기존 동작 불변 */
+    authToken?: string,
   ): Promise<{ paymentId: string; status: PaymentStatus }> {
     // 소유권 검증
     const order = await this.orderRepository.findById(orderId);
@@ -53,7 +55,7 @@ export class PaymentService {
     const amount = new Prisma.Decimal(order.totalAmount.toString()).minus(order.discountAmount);
 
     // PG 결제 요청 (트랜잭션 외부 — PG 호출은 롤백 불가)
-    const chargeResult = await this.gateway.charge({ orderId, amount, idempotencyKey });
+    const chargeResult = await this.gateway.charge({ orderId, amount, idempotencyKey, authToken });
 
     const status = chargeResult.success ? PaymentStatus.completed : PaymentStatus.failed;
 
@@ -112,11 +114,12 @@ export class PaymentService {
       throw new ConflictException('Payment is not completed, cannot refund');
     }
 
-    // PG 환불 요청 (트랜잭션 외부)
+    // PG 환불 요청 (트랜잭션 외부) — pgTransactionId: 이니시스 취소 대상 원 거래ID (ADR-002)
     const refundResult = await this.gateway.refund({
       paymentId,
       amount: payment.amount,
       idempotencyKey,
+      pgTransactionId: payment.pgTransactionId ?? undefined,
     });
 
     // 환불 기록 + 상태 변경 + outbox 원자적 저장
