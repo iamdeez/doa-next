@@ -53,10 +53,15 @@ if [[ -z "$SUBCOMMAND" ]]; then
 fi
 
 load_migration_config
+assert_sslmode_require || exit 1
 
 # 레거시 S3·R2 rclone 설정 필수값 검증(config.example.env 슬롯, T-B04) — 미설정 시 즉시 중단.
 assert_file_migration_config() {
   : "${LEGACY_S3_ENDPOINT:?config.env 에 LEGACY_S3_ENDPOINT 미설정}"
+  [[ "$LEGACY_S3_ENDPOINT" == https://* ]] || {
+    echo "[files-migrate] LEGACY_S3_ENDPOINT 는 https:// 스킴이어야 함(NFR-004): ${LEGACY_S3_ENDPOINT}" >&2
+    exit 1
+  }
   : "${LEGACY_S3_BUCKET:?config.env 에 LEGACY_S3_BUCKET 미설정}"
   : "${LEGACY_S3_ACCESS_KEY_ID:?config.env 에 LEGACY_S3_ACCESS_KEY_ID 미설정}"
   : "${LEGACY_S3_SECRET_ACCESS_KEY:?config.env 에 LEGACY_S3_SECRET_ACCESS_KEY 미설정}"

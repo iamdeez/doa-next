@@ -67,7 +67,7 @@
   - 즉각적 노출 조건: `config.example.env` 기본값(L14 `export PGSSLMODE=require`)을 그대로 사용하면 문제 없음 — 이 취약점은 misconfiguration(오퍼레이터가 기본값을 완화)을 전제로 한다.
   - 020 스크립트 대비 회귀 성격: 동일 라이브러리를 공유하면서도 새 스크립트가 기존에 존재하던 방어 호출을 누락한 **일관성 결여**가 근본 원인.
 - **수정 방향**: `files-migrate.sh`의 `load_migration_config` 호출 직후 `assert_sslmode_require || exit 1`을 추가하여 `extract.sh`/`load.sh`와 동일한 방어 수준을 확보한다.
-- **상태**: OPEN (신규)
+- **상태**: **RESOLVED (2026-07-06, 사용자 요청 후속수정)** — `load_migration_config` 직후 `assert_sslmode_require || exit 1` 추가. `bash -n` 통과, 정적 테스트 3종 18건 전 PASS, test/static 전체 회귀 0건.
 
 ### SEC-022-02 (Medium)
 
@@ -75,7 +75,7 @@
 - **위치**: `scripts/migration/files-migrate.sh` L79 (`R2_ENDPOINT` 구성) 대비 L59 (`LEGACY_S3_ENDPOINT` 검증)
 - **설명**: `R2_ENDPOINT`는 스크립트가 `"https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"`로 **코드 레벨에서 https 강제**하지만, `LEGACY_S3_ENDPOINT`는 `config.env`에서 운영자가 입력한 값을 그대로 사용하며 스킴(scheme)이 `https://`인지 런타임에 검증하는 코드가 없다. `config.example.env` 주석(L59 "전송 채널은 반드시 https:// 를 사용한다")과 정적 테스트(`file-migration-script.spec.ts::test_SC014_config_example_env_endpoints_use_https`)는 **예시 파일의 문자열 존재만** 확인하며, 실제 운영에 사용되는 `config.env`(gitignore 대상이라 정적 테스트 스캔 밖)나 스크립트 런타임 동작은 검증하지 않는다. 따라서 레거시 소스 쪽 전송 채널의 TLS 적용은 순수 운영자 신뢰에 의존한다(코드 레벨 강제 없음) — SC-014의 "설정 검토로 확인" 문구가 정적 테스트 시점에는 예시 파일만 검토하고, 실행 시점 강제는 부재.
 - **수정 방향**: `assert_file_migration_config` 함수(files-migrate.sh L58-68)에 `[[ "$LEGACY_S3_ENDPOINT" == https://* ]]` 검증을 추가하여 http:// 스킴 설정 시 즉시 중단하도록 한다.
-- **상태**: OPEN (신규)
+- **상태**: **RESOLVED (2026-07-06, 사용자 요청 후속수정)** — `assert_file_migration_config` 에 `[[ "$LEGACY_S3_ENDPOINT" == https://* ]] || exit 1` 검증 추가. `bash -n` 통과, 정적 테스트 3종 18건 전 PASS, test/static 전체 회귀 0건.
 
 ### 검토했으나 취약점으로 분류하지 않은 항목 (근거 명시)
 

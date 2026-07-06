@@ -22,6 +22,11 @@ export class AutoConfirmJob implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     this.boss = this.pgBossService.getBoss();
 
+    // PgBossService.onModuleInit 도 동일 큐를 생성하지만, 같은 모듈 내 provider들의
+    // onModuleInit 은 NestJS 가 Promise.all 로 동시 실행하므로 순서를 보장하지 않는다.
+    // createQueue 는 멱등(ON CONFLICT DO NOTHING)이라 재호출해도 안전 — race condition 방지.
+    await this.boss.createQueue(AUTO_CONFIRM_QUEUE);
+
     await this.boss.work(AUTO_CONFIRM_QUEUE, async (jobs) => {
       for (const _job of jobs) {
         this.logger.log('AutoConfirmJob triggered');

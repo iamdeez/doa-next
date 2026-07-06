@@ -42,3 +42,4 @@ apps/backend/prisma/generated/
 # Data migration cutover runner (020-data-migration-cutover) — 자격증명·실행 산출물, 커밋 금지
 scripts/migration/config.env
 scripts/migration/migration-run/
+.vercel

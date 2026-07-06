@@ -161,7 +161,7 @@ function AddressForm({
     <Card>
       <form onSubmit={submit} className="space-y-4">
         <div className="text-sm font-medium text-foreground">{initial ? '배송지 수정' : '새 배송지'}</div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {FIELDS.map((f) => (
             <Input
               key={f.key}

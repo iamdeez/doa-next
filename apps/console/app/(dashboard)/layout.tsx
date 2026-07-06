@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
 import { ThemeToggle } from '@/components/theme-toggle';
 
@@ -36,10 +36,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { loading, isAuthenticated, isSeller, isAdmin, sellerStatus, profile, logout } = useAuth();
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) router.replace('/login');
   }, [loading, isAuthenticated, router]);
+
+  // 라우트 이동 시 모바일 드로어를 닫는다(데스크톱은 lg: 에서 항상 보이므로 영향 없음).
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
 
   if (loading || !isAuthenticated) {
     return (
@@ -57,7 +63,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="w-60 shrink-0 border-r border-border bg-surface px-4 py-6">
+      {/* 모바일 드로어 배경 오버레이 — lg 이상에서는 사이드바가 항상 보이므로 불필요 */}
+      {navOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={() => setNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-64 shrink-0 transform border-r border-border bg-surface px-4 py-6 transition-transform duration-200 ease-in-out lg:static lg:z-auto lg:w-60 lg:translate-x-0 ${
+          navOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="px-2 text-lg font-semibold text-foreground">DOA Console</div>
         <nav className="mt-8 flex flex-col gap-1">
           {visible.map((item) => {
@@ -79,17 +98,38 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </nav>
       </aside>
 
-      <div className="flex flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between border-b border-border bg-surface px-6">
-          <div className="text-sm text-muted-foreground">
-            {profile?.email}
-            {isSeller && (
-              <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                판매자 · {sellerStatus}
-              </span>
-            )}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-14 items-center justify-between gap-3 border-b border-border bg-surface px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              onClick={() => setNavOpen((v) => !v)}
+              aria-label="메뉴 열기"
+              aria-expanded={navOpen}
+              className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-foreground transition hover:bg-muted lg:hidden"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M3 5h14M3 10h14M3 15h14" />
+              </svg>
+            </button>
+            <div className="min-w-0 truncate text-sm text-muted-foreground">
+              {profile?.email}
+              {isSeller && (
+                <span className="ml-2 hidden rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground sm:inline">
+                  판매자 · {sellerStatus}
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             <ThemeToggle />
             <button
               onClick={() => void logout().then(() => router.replace('/login'))}
@@ -99,7 +139,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
-        <main className="flex-1 px-6 py-8">{children}</main>
+        <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       </div>
     </div>
   );

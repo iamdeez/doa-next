@@ -363,7 +363,7 @@ function AddVariantForm({
     <Card className="p-5">
       <form onSubmit={submit} className="space-y-3">
         <div className="text-sm font-medium text-foreground">옵션 추가</div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input label="옵션명" required {...field('optionName')} />
           <Input label="옵션값" required {...field('optionValue')} />
           <Input label="SKU" required {...field('sku')} />
